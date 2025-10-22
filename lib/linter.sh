@@ -62,7 +62,7 @@ check_bracket_style() {
   if [[ "$line" =~ [[:space:]]test[[:space:]]+ ]] || [[ "$line" =~ ^test[[:space:]]+ ]]; then
     # Skip if it's inside quotes (simple check)
     if ! [[ "$line" =~ \"[^\"]*[[:space:]]test[[:space:]][^\"]*\" ]] && \
-       ! [[ "$line" =~ \'[^\']*[[:space:]]test[[:space:]][^\']*\' ]]; then
+    ! [[ "$line" =~ \'[^\']*[[:space:]]test[[:space:]][^\']*\' ]]; then
       local level="${SEVERITY[deprecated_syntax]}"
       add_issue "$level" "deprecated_syntax" "$line_num"  "Use [[ ]] instead of 'test' command"
       return 1
@@ -199,9 +199,29 @@ lint_file() {
 
   local line_num=0
   local indent_level=0
+  local in_heredoc=false
+  local heredoc_delimiter=""
 
   while IFS= read -r line || [[ -n "$line" ]]; do
     line_num=$((line_num + 1))
+
+    # Check for heredoc start
+    if [[ "$in_heredoc" == false ]] && detect_heredoc_start "$line"; then
+      in_heredoc=true
+      heredoc_delimiter=$(extract_heredoc_delimiter "$line")
+    fi
+
+    # Check for heredoc end
+    if [[ "$in_heredoc" == true ]] && is_heredoc_end "$line" "$heredoc_delimiter"; then
+      in_heredoc=false
+      heredoc_delimiter=""
+      continue
+    fi
+
+    # Skip linting lines inside heredocs
+    if [[ "$in_heredoc" == true ]]; then
+      continue
+    fi
 
     # Calculate expected indentation
     local trimmed="${line#"${line%%[![:space:]]*}"}"

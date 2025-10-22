@@ -57,11 +57,16 @@ check_bracket_style() {
     return 1
   fi
 
-  # Check for test command
-  if [[ "$line" =~ [[:space:]]test[[:space:]]+ ]]; then
-    local level="${SEVERITY[deprecated_syntax]}"
-    add_issue "$level" "deprecated_syntax" "$line_num"  "Use [[ ]] instead of 'test' command"
-    return 1
+  # Check for test command (skip if inside quotes)
+  # First check if the line has 'test' in a command context (not function names)
+  if [[ "$line" =~ [[:space:]]test[[:space:]]+ ]] || [[ "$line" =~ ^test[[:space:]]+ ]]; then
+    # Skip if it's inside quotes (simple check)
+    if ! [[ "$line" =~ \"[^\"]*[[:space:]]test[[:space:]][^\"]*\" ]] && \
+       ! [[ "$line" =~ \'[^\']*[[:space:]]test[[:space:]][^\']*\' ]]; then
+      local level="${SEVERITY[deprecated_syntax]}"
+      add_issue "$level" "deprecated_syntax" "$line_num"  "Use [[ ]] instead of 'test' command"
+      return 1
+    fi
   fi
 
   return 0

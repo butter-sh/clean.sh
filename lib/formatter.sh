@@ -153,8 +153,11 @@ wrap_long_line() {
     return 0
   fi
 
-  # Try to wrap at pipe operators
-  if [[ "$line" =~ \| ]] && ! [[ "$line" =~ =~ ]]; then
+  # Try to wrap at pipe operators - DISABLED to avoid creating problematic patterns
+  # The pattern `... \` + `  | ...` can look like duplicate pipes and cause issues
+  # For now, we'll let long lines with pipes remain as-is
+  # TODO: Implement smarter wrapping that doesn't create ambiguous patterns
+  if false && [[ "$line" =~ \| ]] && ! [[ "$line" =~ =~ ]]; then
     local result=""
     local current=""
     local first=true

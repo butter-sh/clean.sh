@@ -28,15 +28,15 @@ fix_brackets() {
 
   # Fix 'test' command to [[ ]]
   if [[ "$fixed" =~ [[:space:]]test[[:space:]]+ ]]; then
-    fixed=$(echo "$fixed" | sed 's/\btest \(.*\); *\(then\|do\)/[[ \1 ]]; \2/g')
-  fi
+  fixed=$(echo "$fixed" | sed 's/\btest \(.*\); *\(then\|do\)/[[ \1 ]]; \2/g')
+fi
 
   # Fix single brackets [ to [[
-  if [[ "$fixed" =~ \[[[:space:]][^[] ]] && ! [[ "$fixed" =~ \[\[ ]]; then
-    fixed=$(echo "$fixed" | sed 's/\[ /[[ /g; s/ \];/ ]];/g')
-  fi
+if [[ "$fixed" =~ \[[[:space:]][^[] ]] && ! [[ "$fixed" =~ \[\[ ]]; then
+fixed=$(echo "$fixed" | sed 's/\[ /[[ /g; s/ \];/ ]];/g')
+fi
 
-  echo "$fixed"
+echo "$fixed"
 }
 
 # Fix operator spacing
@@ -59,27 +59,27 @@ fix_operator_spacing() {
   # Fix logical operators && and ||
   if ! [[ "$fixed" =~ =~ ]]; then
     # Fix && operator: remove any existing spaces, then add proper spacing
-    fixed=$(echo "$fixed" | sed 's/\]\][[:space:]]*\&\&[[:space:]]*/]] \&\& /g')
-    fixed=$(echo "$fixed" | sed 's/\&\&[[:space:]]*\[\[/\&\& [[/g')
+  fixed=$(echo "$fixed" | sed 's/\]\][[:space:]]*\&\&[[:space:]]*/]] \&\& /g')
+fixed=$(echo "$fixed" | sed 's/\&\&[[:space:]]*\[\[/\&\& [[/g')
     # Fix || operator similarly
-    fixed=$(echo "$fixed" | sed 's/\]\][[:space:]]*||[[:space:]]*/]] || /g')
-    fixed=$(echo "$fixed" | sed 's/||[[:space:]]*\[\[/|| [[/g')
-  fi
+fixed=$(echo "$fixed" | sed 's/\]\][[:space:]]*||[[:space:]]*/]] || /g')
+fixed=$(echo "$fixed" | sed 's/||[[:space:]]*\[\[/|| [[/g')
+fi
 
   # Fix space before braces if configured
-  if [[ "${CONFIG[space_before_brace]}" == "true" ]]; then
-    fixed=$(echo "$fixed" | sed 's/){/) {/g; s/then{/then {/g; s/do{/do {/g')
-  fi
+if [[ "${CONFIG[space_before_brace]}" == "true" ]]; then
+fixed=$(echo "$fixed" | sed 's/){/) {/g; s/then{/then {/g; s/do{/do {/g')
+fi
 
   # Fix space after comma if configured (but not in brace expansions)
-  if [[ "${CONFIG[space_after_comma]}" == "true" ]]; then
+if [[ "${CONFIG[space_after_comma]}" == "true" ]]; then
     # Use parser function for POSIX-compliant detection
-    if ! is_brace_expansion "$fixed"; then
-      fixed=$(echo "$fixed" | sed 's/,\([^ ]\)/, \1/g')
-    fi
-  fi
+  if ! is_brace_expansion "$fixed"; then
+  fixed=$(echo "$fixed" | sed 's/,\([^ ]\)/, \1/g')
+fi
+fi
 
-  echo "$fixed"
+echo "$fixed"
 }
 
 # Wrap long lines intelligently

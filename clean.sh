@@ -15,7 +15,7 @@ REAL_SCRIPT_DIR="$(cd "$(dirname "${REAL_BASH_SOURCE}")" && pwd)"
 export FORCE_COLOR=${FORCE_COLOR:-"1"}
 if [[ "$FORCE_COLOR" = "0" ]]; then
   export RED='' GREEN='' YELLOW='' BLUE='' CYAN='' MAGENTA='' BOLD='' NC=''
-else
+  else
   export RED='\033[0;31m' GREEN='\033[0;32m' YELLOW='\033[1;33m'
   export BLUE='\033[0;34m' CYAN='\033[0;36m' MAGENTA='\033[0;35m'
   export BOLD='\033[1m' NC='\033[0m'
@@ -29,26 +29,26 @@ log_error() { echo -e "${RED}[✗]${NC} $1" >&2; }
 
 # Default configuration
 declare -A CONFIG=(
-  [max_line_length]=100
-  [indent_size]=2
-  [use_spaces]=true
-  [use_double_brackets]=true
-  [space_around_operators]=true
-  [space_after_comma]=true
-  [space_before_brace]=true
-  [newline_before_pipe]=false
-  [quote_variables]=true
-  [lowercase_variables]=false
-  [use_function_keyword]=false
+[max_line_length]=100
+[indent_size]=2
+[use_spaces]=true
+[use_double_brackets]=true
+[space_around_operators]=true
+[space_after_comma]=true
+[space_before_brace]=true
+[newline_before_pipe]=false
+[quote_variables]=true
+[lowercase_variables]=false
+[use_function_keyword]=false
 )
 
 declare -A SEVERITY=(
-  [missing_quotes]=warning
-  [line_length]=warning
-  [deprecated_syntax]=error
-  [spacing_issues]=warning
-  [bracket_style]=warning
-  [indentation]=warning
+[missing_quotes]=warning
+[line_length]=warning
+[deprecated_syntax]=error
+[spacing_issues]=warning
+[bracket_style]=warning
+[indentation]=warning
 )
 
 # Load configuration from arty.yml using yq
@@ -194,89 +194,89 @@ main() {
   # Parse arguments
   while [[ $# -gt 0 ]]; do
     case "$1" in
-      -c|--config)
-        config_file="$2"
-        shift 2
-        ;;
-      -v|--verbose)
-        verbose=true
-        shift
-        ;;
-      --no-color)
-        export FORCE_COLOR=0
-        shift
-        ;;
-      -h|--help)
-        show_usage
-        exit 0
-        ;;
-      lint|format|check|parse)
-        command="$1"
-        shift
-        ;;
-      help)
-        show_usage
-        exit 0
-        ;;
-      -*)
-        log_error "Unknown option: $1"
-        exit 1
-        ;;
-      *)
-        files+=("$1")
-        shift
-        ;;
-    esac
-  done
+    -c|--config)
+    config_file="$2"
+    shift 2
+    ;;
+    -v|--verbose)
+    verbose=true
+    shift
+    ;;
+    --no-color)
+    export FORCE_COLOR=0
+    shift
+    ;;
+    -h|--help)
+    show_usage
+    exit 0
+    ;;
+    lint|format|check|parse)
+    command="$1"
+    shift
+    ;;
+    help)
+    show_usage
+    exit 0
+    ;;
+    -*)
+    log_error "Unknown option: $1"
+    exit 1
+    ;;
+    *)
+  files+=("$1")
+  shift
+  ;;
+esac
+done
 
   # Load configuration
-  load_config "$config_file"
+load_config "$config_file"
 
   # Validate command
-  if [[ -z "$command" ]]; then
-    log_error "No command specified"
-    show_usage
-    exit 1
-  fi
+if [[ -z "$command" ]]; then
+  log_error "No command specified"
+  show_usage
+  exit 1
+fi
 
   # Validate files
-  if [[ ${#files[@]} -eq 0 ]]; then
-    log_error "No files specified"
-    echo "Usage: clean.sh $command <file>..."
-    exit 1
-  fi
+if [[ ${#files[@]} -eq 0 ]]; then
+  log_error "No files specified"
+  echo "Usage: clean.sh $command <file>..."
+  exit 1
+fi
 
   # Execute command
-  local exit_code=0
+local exit_code=0
 
-  case "$command" in
-    lint)
-      for file in "${files[@]}"; do
-        lint_file "$file" "$verbose" || exit_code=1
-      done
-      ;;
-    format)
-      for file in "${files[@]}"; do
-        format_file "$file" "$verbose" || exit_code=1
-      done
-      ;;
-    check)
-      for file in "${files[@]}"; do
-        check_file "$file" "$verbose" || exit_code=1
-      done
-      ;;
-    parse)
-      for file in "${files[@]}"; do
-        parse_file "$file" "$verbose" || exit_code=1
-      done
-      ;;
-    *)
-      log_error "Unknown command: $command"
-      exit 1
-      ;;
-  esac
+case "$command" in
+lint)
+for file in "${files[@]}"; do
+  lint_file "$file" "$verbose" || exit_code=1
+done
+;;
+format)
+for file in "${files[@]}"; do
+  format_file "$file" "$verbose" || exit_code=1
+done
+;;
+check)
+for file in "${files[@]}"; do
+  check_file "$file" "$verbose" || exit_code=1
+done
+;;
+parse)
+for file in "${files[@]}"; do
+  parse_file "$file" "$verbose" || exit_code=1
+done
+;;
+*)
+log_error "Unknown command: $command"
+exit 1
+;;
+esac
 
-  exit $exit_code
+exit $exit_code
 }
 
 # Run main if script is executed directly

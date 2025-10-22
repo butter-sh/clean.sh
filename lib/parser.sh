@@ -14,27 +14,27 @@ declare -g PARSE_STRING_CHAR=""
 
 # Token types based on POSIX grammar
 declare -A TOKEN_TYPES=(
-  [WORD]=1
-  [NUMBER]=2
-  [OPERATOR]=3
-  [REDIRECTION]=4
-  [KEYWORD]=5
-  [ASSIGNMENT]=6
-  [COMMENT]=7
-  [STRING]=8
-  [VARIABLE]=9
-  [EXPANSION]=10
-  [ARITHMETIC]=11
-  [SUBSTITUTION]=12
+[WORD]=1
+[NUMBER]=2
+[OPERATOR]=3
+[REDIRECTION]=4
+[KEYWORD]=5
+[ASSIGNMENT]=6
+[COMMENT]=7
+[STRING]=8
+[VARIABLE]=9
+[EXPANSION]=10
+[ARITHMETIC]=11
+[SUBSTITUTION]=12
 )
 
 # POSIX shell keywords
 declare -a BASH_KEYWORDS=(
-  "if" "then" "else" "elif" "fi"
-  "for" "do" "done" "in"
-  "while" "until"
-  "case" "esac"
-  "function"
+"if" "then" "else" "elif" "fi"
+"for" "do" "done" "in"
+"while" "until"
+"case" "esac"
+"function"
 )
 
 # Reset parse context
@@ -75,7 +75,7 @@ is_in_string() {
         in_string=true
         quote_char="$char"
       fi
-    else
+      else
       if [[ "$char" == "$quote_char" ]]; then
         in_string=false
         quote_char=""

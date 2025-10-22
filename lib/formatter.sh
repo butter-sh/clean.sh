@@ -77,6 +77,12 @@ if [[ "$fixed" =~ \[[[:space:]][^[] ]] && ! [[ "$fixed" =~ \[\[ ]]; then
 fixed=$(echo "$fixed" | sed 's/\[ /[[ /g; s/ \];/ ]];/g')
 fi
 
+  # Fix mixed brackets [[ ... ] to [[ ... ]]
+  if [[ "$fixed" =~ \[\[ ]] && [[ "$fixed" =~ \][[:space:]]*(&&|\|\||;|$) ]]; then
+    # Has [[ but might have single ] closing - fix it
+    fixed=$(echo "$fixed" | sed 's/\(\[\[[^]]*\)\][[:space:]]*\(&&\|||\)/\1]] \2/g')
+  fi
+
 echo "$fixed"
 }
 

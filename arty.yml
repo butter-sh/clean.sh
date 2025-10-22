@@ -18,7 +18,7 @@ scripts:
   test/setup: "arty exec judge setup"
   test/verbose: "arty exec judge run -v"
   test/ci: "TERM=linux arty exec judge run"
-  docs: BASE_PATH=clean.sh arty exec leaf . --logo ./icon.svg -o ./docs
+  docs: arty exec leaf docs -o ./docs --project-dir . --logo ./icon.svg --base-path clean.sh
 
 clean:
   rules:

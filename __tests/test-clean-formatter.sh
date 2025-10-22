@@ -218,16 +218,16 @@ EOF
 
   bash "$CLEAN_SH" format "$temp" >/dev/null 2>&1
 
-  first_pass=$(cat "$temp")
+first_pass=$(cat "$temp")
 
-  bash "$CLEAN_SH" format "$temp" >/dev/null 2>&1
+bash "$CLEAN_SH" format "$temp" >/dev/null 2>&1
 
-  second_pass=$(cat "$temp")
+second_pass=$(cat "$temp")
 
-  rm -f "$temp"
+rm -f "$temp"
 
-  assert_equals "$first_pass" "$second_pass" "Formatting should be idempotent"
-  teardown
+assert_equals "$first_pass" "$second_pass" "Formatting should be idempotent"
+teardown
 }
 
 # Test: Format test command to double brackets

@@ -29,8 +29,7 @@ check_line_length() {
 
   if [[ ${#line} -gt $max_length ]]; then
     local level="${SEVERITY[line_length]}"
-    add_issue "$level" "line_length" "$line_num" \
-    "Line exceeds maximum length of $max_length characters (current: ${#line})"
+    add_issue "$level" "line_length" "$line_num"  "Line exceeds maximum length of $max_length characters (current: ${#line})"
     return 1
   fi
 
@@ -54,16 +53,14 @@ check_bracket_style() {
   # Check for single brackets
   if [[ "$line" =~ [[:space:]]\[[[:space:]][^[] ]] && ! [[ "$line" =~ \[\[ ]]; then
     local level="${SEVERITY[bracket_style]}"
-    add_issue "$level" "bracket_style" "$line_num" \
-    "Use [[ ]] instead of [ ]"
+    add_issue "$level" "bracket_style" "$line_num"  "Use [[ ]] instead of [ ]"
     return 1
   fi
 
   # Check for test command
   if [[ "$line" =~ [[:space:]]test[[:space:]]+ ]]; then
     local level="${SEVERITY[deprecated_syntax]}"
-    add_issue "$level" "deprecated_syntax" "$line_num" \
-    "Use [[ ]] instead of 'test' command"
+    add_issue "$level" "deprecated_syntax" "$line_num"  "Use [[ ]] instead of 'test' command"
     return 1
   fi
 
@@ -87,15 +84,13 @@ check_operator_spacing() {
   # Check for missing spaces around logical operators
   if [[ "$line" =~ \]\]\&\& ]] || [[ "$line" =~ \&\&\[\[ ]]; then
     local level="${SEVERITY[spacing_issues]}"
-    add_issue "$level" "spacing_issues" "$line_num" \
-    "Missing space around && operator"
+    add_issue "$level" "spacing_issues" "$line_num"  "Missing space around && operator"
     return 1
   fi
 
   if [[ "$line" =~ \]\]\|\| ]] || [[ "$line" =~ \|\|\[\[ ]]; then
     local level="${SEVERITY[spacing_issues]}"
-    add_issue "$level" "spacing_issues" "$line_num" \
-    "Missing space around || operator"
+    add_issue "$level" "spacing_issues" "$line_num"  "Missing space around || operator"
     return 1
   fi
 
@@ -120,8 +115,7 @@ check_variable_quoting() {
   if [[ "$line" =~ =[[:space:]]*\$[a-zA-Z_] ]] && ! [[ "$line" =~ =[[:space:]]*[\"\'] ]]; then
     if ! is_in_string "$line" 0; then
       local level="${SEVERITY[missing_quotes]}"
-      add_issue "info" "missing_quotes" "$line_num" \
-      "Consider quoting variable assignments"
+      add_issue "info" "missing_quotes" "$line_num"  "Consider quoting variable assignments"
       return 1
     fi
   fi
@@ -147,8 +141,7 @@ check_indentation() {
   # Check for tabs
   if [[ "$line" =~ ^[[:space:]]*$'\t' ]]; then
     local level="${SEVERITY[spacing_issues]}"
-    add_issue "$level" "spacing_issues" "$line_num" \
-    "Use spaces instead of tabs for indentation"
+    add_issue "$level" "spacing_issues" "$line_num"  "Use spaces instead of tabs for indentation"
     return 1
   fi
 

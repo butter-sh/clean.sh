@@ -367,32 +367,67 @@ format_file() {
       continue
     fi
 
-    # Handle line continuations - join lines ending with backslash
+    # Handle line continuations - only join to fix duplicate operators
     if [[ "$in_heredoc" == false ]] && [[ "$line" =~ \\[[:space:]]*$ ]]; then
-      # Line ends with backslash - start or continue accumulating
+      # Line ends with backslash - peek at next line to check for issues
       if [[ "$in_continuation" == false ]]; then
-        # Remove trailing backslash and whitespace
-        continued_line="${line%\\*}"
+        continued_line="${line}"
         in_continuation=true
       else
-        # Continue accumulating - remove backslash and append
-        continued_line="${continued_line} ${line%\\*}"
+        # Accumulate continuation lines
+        continued_line="${continued_line}"$'\n'"${line}"
       fi
       continue
     elif [[ "$in_continuation" == true ]]; then
-      # This line completes the continuation
+      # This line completes the continuation - check for duplicate operators
       local trimmed_line="${line#"${line%%[![:space:]]*}"}"
+      local prev_line_content="${continued_line##*$'\n'}"
+      prev_line_content="${prev_line_content%\\*}"
 
-      # Check if we're joining with a pipe operator - avoid duplication
-      if [[ "$continued_line" =~ \|[[:space:]]*$ ]] && [[ "$trimmed_line" =~ ^\|[[:space:]] ]]; then
-        # Both parts have pipe operator - keep only one
-        # Remove trailing pipe from continued_line
-        continued_line="${continued_line%|*}"
-        continued_line="${continued_line%"${continued_line##*[![:space:]]}"}"  # trim trailing space
+      # Check if we have duplicate pipe operators
+      if [[ "$prev_line_content" =~ \|[[:space:]]*$ ]] && [[ "$trimmed_line" =~ ^\|[[:space:]] ]]; then
+        # Duplicate pipe - join and fix
+        local joined=""
+        while IFS= read -r cont_line; do
+          cont_line="${cont_line%\\*}"
+          cont_line="${cont_line#"${cont_line%%[![:space:]]*}"}"
+          if [[ -n "$joined" ]]; then
+            joined="${joined} ${cont_line}"
+          else
+            joined="${cont_line}"
+          fi
+        done <<< "$continued_line"
+
+        # Add final line
+        joined="${joined} ${trimmed_line}"
+
+        # Remove duplicate pipe
+        joined=$(echo "$joined" | sed 's/|[[:space:]]*|[[:space:]]*/| /g')
+
+        line="$joined"
+      else
+        # No duplicate - process continuation lines individually
+        while IFS= read -r cont_line; do
+          local fixed_cont
+          fixed_cont=$(format_line "$cont_line" "$indent_level" "$in_heredoc")
+          printf "%s\n" "$fixed_cont" >> "$temp"
+
+          # Track indent changes
+          local trimmed_cont="${cont_line#"${cont_line%%[![:space:]]*}"}"
+          if [[ "$in_heredoc" == false ]] && [[ "$trimmed_cont" =~ ^(}|fi|done|esac) ]]; then
+            ((indent_level--)) || indent_level=0
+          fi
+          if [[ "$in_heredoc" == false ]] && \
+             ([[ "$trimmed_cont" =~ (then|do|\{)$ ]] || \
+              [[ "$trimmed_cont" =~ ^(function[[:space:]]+)?[a-zA-Z_][a-zA-Z0-9_]*\(\)[[:space:]]*$ ]]); then
+            ((++indent_level))
+          fi
+        done <<< "$continued_line"
+
+        # Process the final line normally (without backslash)
+        line="$line"
       fi
 
-      continued_line="${continued_line} ${trimmed_line}"
-      line="$continued_line"
       in_continuation=false
       continued_line=""
     fi

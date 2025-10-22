@@ -1,0 +1,369 @@
+#!/usr/bin/env bash
+
+# formatter.sh - Formatting engine with heredoc-safe rule application
+# Part of clean.sh
+
+# Format bracket style
+fix_brackets() {
+  local line="$1"
+
+  if [[ "${CONFIG[use_double_brackets]}" != "true" ]]; then
+    echo "$line"
+    return 0
+  fi
+
+  # Skip protected contexts
+  if is_protected_context "$line"; then
+    echo "$line"
+    return 0
+  fi
+
+  # Skip lines with string assignments (heuristic to avoid modifying string content)
+  if [[ "$line" =~ =\"[^\"]*\[.*\] ]]; then
+    echo "$line"
+    return 0
+  fi
+
+  local fixed="$line"
+
+  # Fix 'test' command to [[ ]]
+  if [[ "$fixed" =~ [[:space:]]test[[:space:]]+ ]]; then
+    fixed=$(echo "$fixed" | sed 's/\btest \(.*\); *\(then\|do\)/[[ \1 ]]; \2/g')
+  fi
+
+  # Fix single brackets [ to [[
+  if [[ "$fixed" =~ \[[[:space:]][^[] ]] && ! [[ "$fixed" =~ \[\[ ]]; then
+    fixed=$(echo "$fixed" | sed 's/\[ /[[ /g; s/ \];/ ]];/g')
+  fi
+
+  echo "$fixed"
+}
+
+# Fix operator spacing
+fix_operator_spacing() {
+  local line="$1"
+
+  if [[ "${CONFIG[space_around_operators]}" != "true" ]]; then
+    echo "$line"
+    return 0
+  fi
+
+  # Skip protected contexts
+  if is_protected_context "$line"; then
+    echo "$line"
+    return 0
+  fi
+
+  local fixed="$line"
+
+  # Fix logical operators && and ||
+  if ! [[ "$fixed" =~ =~ ]]; then
+    # Fix && operator: remove any existing spaces, then add proper spacing
+    fixed=$(echo "$fixed" | sed 's/\]\][[:space:]]*\&\&[[:space:]]*/]] \&\& /g')
+    fixed=$(echo "$fixed" | sed 's/\&\&[[:space:]]*\[\[/\&\& [[/g')
+    # Fix || operator similarly
+    fixed=$(echo "$fixed" | sed 's/\]\][[:space:]]*||[[:space:]]*/]] || /g')
+    fixed=$(echo "$fixed" | sed 's/||[[:space:]]*\[\[/|| [[/g')
+  fi
+
+  # Fix space before braces if configured
+  if [[ "${CONFIG[space_before_brace]}" == "true" ]]; then
+    fixed=$(echo "$fixed" | sed 's/){/) {/g; s/then{/then {/g; s/do{/do {/g')
+  fi
+
+  # Fix space after comma if configured (but not in brace expansions)
+  if [[ "${CONFIG[space_after_comma]}" == "true" ]]; then
+    # Use parser function for POSIX-compliant detection
+    if ! is_brace_expansion "$fixed"; then
+      fixed=$(echo "$fixed" | sed 's/,\([^ ]\)/, \1/g')
+    fi
+  fi
+
+  echo "$fixed"
+}
+
+# Wrap long lines intelligently
+wrap_long_line() {
+  local line="$1"
+  local max_len="${CONFIG[max_line_length]}"
+  local indent="$2"
+
+  # Don't wrap if line is short enough
+  if [[ ${#line} -le $max_len ]]; then
+    echo "$line"
+    return 0
+  fi
+
+  # Don't wrap protected contexts
+  if is_protected_context "$line"; then
+    echo "$line"
+    return 0
+  fi
+
+  # Try to wrap at pipe operators
+  if [[ "$line" =~ \| ]] && ! [[ "$line" =~ =~ ]]; then
+    local segments=()
+    local current=""
+    local first=true
+
+    IFS='|' read -ra parts <<< "$line"
+
+    for part in "${parts[@]}"; do
+      # Trim leading/trailing whitespace
+      part="${part#"${part%%[![:space:]]*}"}"
+      part="${part%"${part##*[![:space:]]}"}"
+
+      if $first; then
+        current="$part"
+        first=false
+      else
+        if [[ $((${#current} + ${#part} + 3)) -gt $max_len ]]; then
+          echo "${current} \\"
+          current="${indent}  | ${part}"
+        else
+          current="${current} | ${part}"
+        fi
+      fi
+    done
+
+    echo "$current"
+    return 0
+  fi
+
+  # Try to wrap at logical operators
+  if [[ "$line" =~ \&\& ]] && ! [[ "$line" =~ =~ ]]; then
+    if [[ "$line" =~ ^(.+[[:space:]])(\&\&)([[:space:]].+)$ ]]; then
+      local part1="${BASH_REMATCH[1]}"
+      local op="${BASH_REMATCH[2]}"
+      local part2="${BASH_REMATCH[3]}"
+
+      echo "${part1}${op} \\"
+      echo "${indent}  ${part2}"
+      return 0
+    fi
+  fi
+
+  if [[ "$line" =~ \|\| ]] && ! [[ "$line" =~ =~ ]]; then
+    if [[ "$line" =~ ^(.+[[:space:]])(\|\|)([[:space:]].+)$ ]]; then
+      local part1="${BASH_REMATCH[1]}"
+      local op="${BASH_REMATCH[2]}"
+      local part2="${BASH_REMATCH[3]}"
+
+      echo "${part1}${op} \\"
+      echo "${indent}  ${part2}"
+      return 0
+    fi
+  fi
+
+  # Default: return as-is (better than corrupting)
+  echo "$line"
+}
+
+# Fix indentation with heredoc awareness
+fix_indentation() {
+  local line="$1"
+  local indent_level="$2"
+  local in_heredoc="$3"
+
+  if [[ "${CONFIG[use_spaces]}" != "true" ]]; then
+    echo "$line"
+    return 0
+  fi
+
+  # Skip empty lines, shebangs, and comments
+  if [[ -z "$line" ]] || [[ "$line" =~ ^#! ]] || [[ "$line" =~ ^[[:space:]]*# ]]; then
+    echo "$line"
+    return 0
+  fi
+
+  # CRITICAL: If inside heredoc, preserve original line exactly
+  if [[ "$in_heredoc" == "true" ]]; then
+    echo "$line"
+    return 0
+  fi
+
+  # Calculate indent
+  local indent_size="${CONFIG[indent_size]}"
+  local spaces=$((indent_level * indent_size))
+  local indent=""
+
+  for ((i=0; i<spaces; i++)); do
+    indent+=" "
+  done
+
+  # Remove existing indentation and apply new
+  local trimmed="${line#"${line%%[![:space:]]*}"}"
+
+  # Don't modify if line has no content
+  if [[ -z "$trimmed" ]]; then
+    echo "$line"
+    return 0
+  fi
+
+  echo "${indent}${trimmed}"
+}
+
+# Format a single line
+format_line() {
+  local line="$1"
+  local indent_level="${2:-0}"
+  local in_heredoc="${3:-false}"
+
+  # Skip empty lines and shebangs
+  if [[ -z "$line" ]] || [[ "$line" =~ ^#! ]]; then
+    echo "$line"
+    return 0
+  fi
+
+  # Skip comments
+  if [[ "$line" =~ ^[[:space:]]*# ]]; then
+    echo "$line"
+    return 0
+  fi
+
+  # If inside heredoc, preserve line exactly
+  if [[ "$in_heredoc" == "true" ]]; then
+    echo "$line"
+    return 0
+  fi
+
+  local fixed="$line"
+
+  # Apply fixes in order
+  fixed=$(fix_brackets "$fixed")
+  fixed=$(fix_operator_spacing "$fixed")
+
+  # Calculate indent string for wrapping
+  local indent_size="${CONFIG[indent_size]}"
+  local spaces=$((indent_level * indent_size))
+  local indent=""
+  for ((i=0; i<spaces; i++)); do
+    indent+=" "
+  done
+
+  # Apply line wrapping if needed
+  fixed=$(wrap_long_line "$fixed" "$indent")
+
+  # Apply indentation (only if not already wrapped)
+  if [[ "$(echo "$fixed" | wc -l)" -eq 1 ]]; then
+    fixed=$(fix_indentation "$fixed" "$indent_level" "$in_heredoc")
+  fi
+
+  echo "$fixed"
+}
+
+# Format entire file with heredoc state tracking
+format_file() {
+  local file="$1"
+  local verbose="${2:-false}"
+
+  if [[ ! -f "$file" ]]; then
+    log_error "File not found: $file"
+    return 1
+  fi
+
+  if [[ "$verbose" == true ]]; then
+    log_info "Formatting: $file"
+  fi
+
+  echo "========================================"
+  echo "Formatting: $file"
+  echo "========================================"
+  echo
+
+  local temp
+  temp=$(mktemp) || {
+    log_error "Cannot create temp file"
+    return 1
+  }
+
+  local line_num=0
+  local fixes=0
+  local indent_level=0
+  local in_heredoc=false
+  local heredoc_delimiter=""
+
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    line_num=$((line_num + 1))
+
+    # Check for heredoc start
+    if [[ "$in_heredoc" == false ]] && detect_heredoc_start "$line"; then
+      in_heredoc=true
+      heredoc_delimiter=$(extract_heredoc_delimiter "$line")
+    fi
+
+    # Check for heredoc end
+    if [[ "$in_heredoc" == true ]] && is_heredoc_end "$line" "$heredoc_delimiter"; then
+      in_heredoc=false
+      heredoc_delimiter=""
+      # Output heredoc end marker as-is
+      printf "%s\n" "$line" >> "$temp"
+      continue
+    fi
+
+    # Calculate current indentation level
+    local trimmed="${line#"${line%%[![:space:]]*}"}"
+
+    # Decrease indent before closing braces (only if not in heredoc)
+    if [[ "$in_heredoc" == false ]] && [[ "$trimmed" =~ ^(}|fi|done|esac) ]]; then
+      ((indent_level--)) || indent_level=0
+    fi
+
+    # Format the line
+    local fixed
+    fixed=$(format_line "$line" "$indent_level" "$in_heredoc")
+
+    # Increase indent after opening constructs (only if not in heredoc)
+    if [[ "$in_heredoc" == false ]] && \
+       ([[ "$trimmed" =~ (then|do|\{)$ ]] || \
+        [[ "$trimmed" =~ ^(function[[:space:]]+)?[a-zA-Z_][a-zA-Z0-9_]*\(\)[[:space:]]*$ ]]); then
+      ((++indent_level))
+    fi
+
+    # Count lines for comparison
+    local fixed_line_count
+    fixed_line_count=$(echo "$fixed" | wc -l)
+
+    # Show what changed
+    if [[ "$line" != "$fixed" ]] || [[ $fixed_line_count -gt 1 ]]; then
+      fixes=$((fixes + 1))
+
+      if [[ "$verbose" == true ]]; then
+        echo "Line $line_num:"
+        echo "  - $line"
+        if [[ $fixed_line_count -eq 1 ]]; then
+          echo "  + $fixed"
+        else
+          echo "  +"
+          echo "$fixed" | sed 's/^/    /'
+        fi
+        echo
+      fi
+    fi
+
+    # Write to temp file
+    while IFS= read -r output_line; do
+      printf "%s\n" "$output_line" >> "$temp"
+    done <<< "$fixed"
+  done < "$file"
+
+  # Replace original file
+  if [[ -s "$temp" ]]; then
+    mv "$temp" "$file"
+    chmod --reference="$file" "$file" 2>/dev/null || chmod 644 "$file"
+  else
+    rm -f "$temp"
+    log_error "Generated empty file"
+    return 1
+  fi
+
+  echo "========================================"
+  if (( fixes == 0 )); then
+    echo -e "${GREEN}✓ No formatting needed${NC}"
+  else
+    echo -e "${GREEN}✓ Fixed $fixes line(s)${NC}"
+  fi
+  echo "========================================"
+
+  return 0
+}

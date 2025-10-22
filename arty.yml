@@ -1,0 +1,45 @@
+name: "@butter.sh/clean.sh"
+version: "1.0.0"
+description: "A POSIX-compliant bash linter and formatter with AST-based parsing"
+author: "valknar@pivoine.art"
+license: "MIT"
+
+references:
+  - https://github.com/butter-sh/judge.sh.git
+  - https://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html
+
+main: "clean.sh"
+
+dependencies:
+  judge.sh: "^1.0.0"
+
+scripts:
+  setup: "bash setup.sh"
+  test: "bash .arty/libs/judge.sh/judge.sh run"
+  test/update: "bash .arty/libs/judge.sh/judge.sh run -u"
+  test/verbose: "bash .arty/libs/judge.sh/judge.sh run -v"
+  lint: "./clean.sh lint clean.sh lib/*.sh"
+  format: "./clean.sh format clean.sh lib/*.sh"
+  docs: "echo 'Documentation: see README.md'"
+
+clean:
+  rules:
+    max_line_length: 100
+    indent_size: 2
+    use_spaces: true
+    use_double_brackets: true
+    space_around_operators: true
+    space_after_comma: true
+    space_before_brace: true
+    newline_before_pipe: false
+    quote_variables: true
+    lowercase_variables: false
+    use_function_keyword: false
+
+  severity:
+    missing_quotes: warning
+    line_length: warning
+    deprecated_syntax: error
+    spacing_issues: warning
+    bracket_style: warning
+    indentation: warning

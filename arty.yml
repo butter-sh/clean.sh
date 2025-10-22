@@ -1,4 +1,4 @@
-name: "@butter.sh/clean.sh"
+name: "clean.sh"
 version: "1.0.0"
 description: "A POSIX-compliant bash linter and formatter with AST-based parsing"
 author: "valknar@pivoine.art"

@@ -5,22 +5,20 @@ author: "valknar@pivoine.art"
 license: "MIT"
 
 references:
-  - https://github.com/butter-sh/judge.sh.git
-  - https://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html
+- https://github.com/butter-sh/leaf.sh.git
+- https://github.com/butter-sh/judge.sh.git
 
 main: "clean.sh"
 
-dependencies:
-  judge.sh: "^1.0.0"
-
 scripts:
-  setup: "bash setup.sh"
-  test: "bash .arty/libs/judge.sh/judge.sh run"
-  test/update: "bash .arty/libs/judge.sh/judge.sh run -u"
-  test/verbose: "bash .arty/libs/judge.sh/judge.sh run -v"
-  lint: "./clean.sh lint clean.sh lib/*.sh"
-  format: "./clean.sh format clean.sh lib/*.sh"
-  docs: "echo 'Documentation: see README.md'"
+  lint: "./clean.sh lint clean.sh lib/*.sh __tests/*.sh"
+  format: "./clean.sh format clean.sh lib/*.sh __tests/*.sh"
+  test: "arty exec judge run"
+  test/update: "arty exec judge run -u"
+  test/setup: "arty exec judge setup"
+  test/verbose: "arty exec judge run -v"
+  test/ci: "TERM=linux arty exec judge run"
+  docs: BASE_PATH=clean.sh arty exec leaf . --logo ./icon.svg -o ./docs
 
 clean:
   rules:

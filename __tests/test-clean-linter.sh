@@ -1,15 +1,20 @@
-#!/usr/bin/env bash
+#!/bin/bash
+# Test suite for clean.sh linter functionality
 
-# test-clean-linter.sh - Linter tests for clean.sh
-# Part of clean.sh test suite
+# Setup before each test
+setup() {
+  TEST_ENV_DIR=$(create_test_env)
+  cd "$TEST_ENV_DIR"
+}
 
-set -euo pipefail
-
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-CLEAN_SH="${SCRIPT_DIR}/../clean.sh"
+teardown() {
+  cleanup_test_env
+}
 
 # Test: Detect line length issues
 test_line_length() {
+  setup
+
   local temp
   temp=$(mktemp)
 
@@ -19,22 +24,22 @@ test_line_length() {
 # This is a very long line that exceeds the maximum line length configured in arty.yml which is set to 100 characters by default
 EOF
 
-  local output
-  output=$(bash "$CLEAN_SH" lint "$temp" 2>&1 || true)
+  set +e
+  output=$(bash "$CLEAN_SH" lint "$temp" 2>&1)
+  exit_code=$?
+  set -e
 
   rm -f "$temp"
 
-  if [[ "$output" =~ "exceeds maximum length" ]]; then
-    echo "✓ Line length issue detected"
-    return 0
-  else
-    echo "✗ Line length issue not detected"
-    return 1
-  fi
+  assert_contains "$output" "exceeds maximum length" "Should detect line length issue"
+  assert_true "[[ $exit_code -ne 0 ]]" "Should exit with error code"
+  teardown
 }
 
 # Test: Detect single bracket usage
 test_single_brackets() {
+  setup
+
   local temp
   temp=$(mktemp)
 
@@ -46,22 +51,20 @@ if [ -f "file.txt" ]; then
 fi
 EOF
 
-  local output
-  output=$(bash "$CLEAN_SH" lint "$temp" 2>&1 || true)
+  set +e
+  output=$(bash "$CLEAN_SH" lint "$temp" 2>&1)
+  set -e
 
   rm -f "$temp"
 
-  if [[ "$output" =~ "Use [[ ]] instead of [ ]" ]]; then
-    echo "✓ Single bracket issue detected"
-    return 0
-  else
-    echo "✗ Single bracket issue not detected"
-    return 1
-  fi
+  assert_contains "$output" "Use [[ ]] instead of [ ]" "Should detect single brackets"
+  teardown
 }
 
 # Test: Detect test command usage
 test_command_detection() {
+  setup
+
   local temp
   temp=$(mktemp)
 
@@ -73,22 +76,20 @@ if test -f "file.txt"; then
 fi
 EOF
 
-  local output
-  output=$(bash "$CLEAN_SH" lint "$temp" 2>&1 || true)
+  set +e
+  output=$(bash "$CLEAN_SH" lint "$temp" 2>&1)
+  set -e
 
   rm -f "$temp"
 
-  if [[ "$output" =~ "Use [[ ]] instead of 'test'" ]]; then
-    echo "✓ Test command issue detected"
-    return 0
-  else
-    echo "✗ Test command issue not detected"
-    return 1
-  fi
+  assert_contains "$output" "Use [[ ]] instead of 'test'" "Should detect test command"
+  teardown
 }
 
 # Test: Detect missing spaces around operators
 test_operator_spacing() {
+  setup
+
   local temp
   temp=$(mktemp)
 
@@ -100,43 +101,39 @@ if [[ -f "a" ]]&&[[ -f "b" ]]; then
 fi
 EOF
 
-  local output
-  output=$(bash "$CLEAN_SH" lint "$temp" 2>&1 || true)
+  set +e
+  output=$(bash "$CLEAN_SH" lint "$temp" 2>&1)
+  set -e
 
   rm -f "$temp"
 
-  if [[ "$output" =~ "Missing space around" ]]; then
-    echo "✓ Operator spacing issue detected"
-    return 0
-  else
-    echo "✗ Operator spacing issue not detected"
-    return 1
-  fi
+  assert_contains "$output" "Missing space around" "Should detect spacing issues"
+  teardown
 }
 
 # Test: Detect tab indentation
 test_tab_indentation() {
+  setup
+
   local temp
   temp=$(mktemp)
 
   printf '#!/usr/bin/env bash\n\ntest_func() {\n\techo "test"\n}\n' > "$temp"
 
-  local output
-  output=$(bash "$CLEAN_SH" lint "$temp" 2>&1 || true)
+  set +e
+  output=$(bash "$CLEAN_SH" lint "$temp" 2>&1)
+  set -e
 
   rm -f "$temp"
 
-  if [[ "$output" =~ "Use spaces instead of tabs" ]]; then
-    echo "✓ Tab indentation issue detected"
-    return 0
-  else
-    echo "✗ Tab indentation issue not detected"
-    return 1
-  fi
+  assert_contains "$output" "Use spaces instead of tabs" "Should detect tab indentation"
+  teardown
 }
 
 # Test: Clean file passes linting
 test_clean_file_passes() {
+  setup
+
   local temp
   temp=$(mktemp)
 
@@ -156,23 +153,22 @@ test_func() {
 }
 EOF
 
-  local output
+  set +e
   output=$(bash "$CLEAN_SH" lint "$temp" 2>&1)
+  exit_code=$?
+  set -e
 
   rm -f "$temp"
 
-  if [[ "$output" =~ "No issues found" ]]; then
-    echo "✓ Clean file passes linting"
-    return 0
-  else
-    echo "✗ Clean file failed linting"
-    echo "Output: $output"
-    return 1
-  fi
+  assert_contains "$output" "No issues found" "Should pass linting"
+  assert_true "[[ $exit_code -eq 0 ]]" "Should exit with success code"
+  teardown
 }
 
 # Test: Multiple issues reported
 test_multiple_issues() {
+  setup
+
   local temp
   temp=$(mktemp)
 
@@ -184,25 +180,21 @@ if [ -f "file.txt" ]&&[ -f "other.txt" ]; then
 fi
 EOF
 
-  local output
-  output=$(bash "$CLEAN_SH" lint "$temp" 2>&1 || true)
+  set +e
+  output=$(bash "$CLEAN_SH" lint "$temp" 2>&1)
+  set -e
 
   rm -f "$temp"
 
-  local issue_count
-  issue_count=$(echo "$output" | grep -c "\[" || true)
-
-  if [[ $issue_count -ge 2 ]]; then
-    echo "✓ Multiple issues reported"
-    return 0
-  else
-    echo "✗ Multiple issues not reported correctly"
-    return 1
-  fi
+  # Should detect multiple issues
+  assert_contains "$output" "[" "Should show issues"
+  teardown
 }
 
-# Test: Comments are preserved
+# Test: Comments are preserved during linting
 test_comments_preserved() {
+  setup
+
   local temp
   temp=$(mktemp)
 
@@ -216,48 +208,56 @@ test_func() {
 }
 EOF
 
-  local output
+  set +e
   output=$(bash "$CLEAN_SH" lint "$temp" 2>&1)
+  exit_code=$?
+  set -e
 
   rm -f "$temp"
 
-  if [[ "$output" =~ "No issues found" ]]; then
-    echo "✓ Comments preserved during linting"
-    return 0
-  else
-    echo "✗ Comments not preserved"
-    return 1
-  fi
+  assert_contains "$output" "No issues found" "Comments should not trigger errors"
+  assert_true "[[ $exit_code -eq 0 ]]" "Should exit with success code"
+  teardown
+}
+
+# Test: Linter shows summary
+test_linter_shows_summary() {
+  setup
+
+  local temp
+  temp=$(mktemp)
+
+  cat > "$temp" << 'EOF'
+#!/usr/bin/env bash
+
+if [ -f "test" ]; then
+  echo "test"
+fi
+EOF
+
+  set +e
+  output=$(bash "$CLEAN_SH" lint "$temp" 2>&1)
+  set -e
+
+  rm -f "$temp"
+
+  assert_contains "$output" "Summary:" "Should show summary"
+  teardown
 }
 
 # Run all tests
 run_tests() {
-  echo "Running linter tests..."
-  echo ""
+  log_section "Linter Tests"
 
-  local failed=0
-
-  test_line_length || ((failed++))
-  test_single_brackets || ((failed++))
-  test_command_detection || ((failed++))
-  test_operator_spacing || ((failed++))
-  test_tab_indentation || ((failed++))
-  test_clean_file_passes || ((failed++))
-  test_multiple_issues || ((failed++))
-  test_comments_preserved || ((failed++))
-
-  echo ""
-  if [[ $failed -eq 0 ]]; then
-    echo "✓ All linter tests passed"
-    return 0
-  else
-    echo "✗ $failed linter test(s) failed"
-    return 1
-  fi
+  test_line_length
+  test_single_brackets
+  test_command_detection
+  test_operator_spacing
+  test_tab_indentation
+  test_clean_file_passes
+  test_multiple_issues
+  test_comments_preserved
+  test_linter_shows_summary
 }
 
 export -f run_tests
-
-if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-  run_tests
-fi

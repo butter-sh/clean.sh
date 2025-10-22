@@ -1,15 +1,20 @@
-#!/usr/bin/env bash
+#!/bin/bash
+# Test suite for clean.sh formatter functionality
 
-# test-clean-formatter.sh - Formatter tests for clean.sh
-# Part of clean.sh test suite
+# Setup before each test
+setup() {
+  TEST_ENV_DIR=$(create_test_env)
+  cd "$TEST_ENV_DIR"
+}
 
-set -euo pipefail
-
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-CLEAN_SH="${SCRIPT_DIR}/../clean.sh"
+teardown() {
+  cleanup_test_env
+}
 
 # Test: Format single brackets to double brackets
 test_format_brackets() {
+  setup
+
   local temp
   temp=$(mktemp)
 
@@ -23,22 +28,18 @@ EOF
 
   bash "$CLEAN_SH" format "$temp" >/dev/null 2>&1
 
-  local output
   output=$(cat "$temp")
 
   rm -f "$temp"
 
-  if [[ "$output" =~ "if [[ -f" ]]; then
-    echo "✓ Brackets formatted correctly"
-    return 0
-  else
-    echo "✗ Brackets not formatted"
-    return 1
-  fi
+  assert_contains "$output" "if [[ -f" "Should convert to double brackets"
+  teardown
 }
 
 # Test: Format operator spacing
 test_format_operator_spacing() {
+  setup
+
   local temp
   temp=$(mktemp)
 
@@ -52,22 +53,18 @@ EOF
 
   bash "$CLEAN_SH" format "$temp" >/dev/null 2>&1
 
-  local output
   output=$(cat "$temp")
 
   rm -f "$temp"
 
-  if [[ "$output" =~ "]] && [[" ]]; then
-    echo "✓ Operator spacing formatted"
-    return 0
-  else
-    echo "✗ Operator spacing not formatted"
-    return 1
-  fi
+  assert_contains "$output" "]] && [[" "Should add spaces around operator"
+  teardown
 }
 
 # Test: Format indentation
 test_format_indentation() {
+  setup
+
   local temp
   temp=$(mktemp)
 
@@ -81,22 +78,18 @@ EOF
 
   bash "$CLEAN_SH" format "$temp" >/dev/null 2>&1
 
-  local output
   output=$(cat "$temp")
 
   rm -f "$temp"
 
-  if [[ "$output" =~ "  echo" ]]; then
-    echo "✓ Indentation formatted"
-    return 0
-  else
-    echo "✗ Indentation not formatted"
-    return 1
-  fi
+  assert_contains "$output" "  echo" "Should indent function body"
+  teardown
 }
 
 # Test: Preserve heredocs exactly
 test_preserve_heredocs() {
+  setup
+
   local temp
   temp=$(mktemp)
 
@@ -116,28 +109,21 @@ EOF
 
   bash "$CLEAN_SH" format "$temp" >/dev/null 2>&1
 
-  local output
   output=$(cat "$temp")
 
   rm -f "$temp"
 
-  if [[ "$output" =~ "HELP_EOF" ]] && [[ "$output" =~ "Usage: script.sh" ]]; then
-    local eof_count
-    eof_count=$(echo "$output" | grep -c "HELP_EOF" || true)
+  heredoc_count=$(echo "$output" | grep -c "HELP_EOF" || true)
 
-    if [[ $eof_count -eq 2 ]]; then
-      echo "✓ Heredocs preserved correctly"
-      return 0
-    fi
-  fi
-
-  echo "✗ Heredocs not preserved"
-  echo "Output: $output"
-  return 1
+  assert_contains "$output" "Usage: script.sh" "Should preserve heredoc content"
+  assert_true "[[ $heredoc_count -eq 2 ]]" "Should have both heredoc delimiters"
+  teardown
 }
 
 # Test: Preserve strings
 test_preserve_strings() {
+  setup
+
   local temp
   temp=$(mktemp)
 
@@ -150,22 +136,18 @@ EOF
 
   bash "$CLEAN_SH" format "$temp" >/dev/null 2>&1
 
-  local output
   output=$(cat "$temp")
 
   rm -f "$temp"
 
-  if [[ "$output" =~ 'test [ string ] with && operators' ]]; then
-    echo "✓ Strings preserved"
-    return 0
-  else
-    echo "✗ Strings not preserved"
-    return 1
-  fi
+  assert_contains "$output" 'test [ string ] with && operators' "Should preserve string content"
+  teardown
 }
 
 # Test: Preserve comments
 test_preserve_comments() {
+  setup
+
   local temp
   temp=$(mktemp)
 
@@ -181,22 +163,19 @@ EOF
 
   bash "$CLEAN_SH" format "$temp" >/dev/null 2>&1
 
-  local output
   output=$(cat "$temp")
 
   rm -f "$temp"
 
-  if [[ "$output" =~ "# Comment with [ brackets ]" ]] && [[ "$output" =~ "# Another comment with && operators" ]]; then
-    echo "✓ Comments preserved"
-    return 0
-  else
-    echo "✗ Comments not preserved"
-    return 1
-  fi
+  assert_contains "$output" "# Comment with [ brackets ]" "Should preserve comment content"
+  assert_contains "$output" "# Another comment with && operators" "Should preserve operator in comment"
+  teardown
 }
 
 # Test: Preserve brace expansions
 test_preserve_brace_expansion() {
+  setup
+
   local temp
   temp=$(mktemp)
 
@@ -210,23 +189,18 @@ EOF
 
   bash "$CLEAN_SH" format "$temp" >/dev/null 2>&1
 
-  local output
   output=$(cat "$temp")
 
   rm -f "$temp"
 
-  if [[ "$output" =~ '{sh,bash,zsh}' ]]; then
-    echo "✓ Brace expansion preserved"
-    return 0
-  else
-    echo "✗ Brace expansion not preserved"
-    echo "Output: $output"
-    return 1
-  fi
+  assert_contains "$output" '{sh,bash,zsh}' "Should preserve brace expansion"
+  teardown
 }
 
 # Test: Idempotent formatting
 test_idempotent_formatting() {
+  setup
+
   local temp
   temp=$(mktemp)
 
@@ -244,27 +218,22 @@ EOF
 
   bash "$CLEAN_SH" format "$temp" >/dev/null 2>&1
 
-  local first_pass
   first_pass=$(cat "$temp")
 
   bash "$CLEAN_SH" format "$temp" >/dev/null 2>&1
 
-  local second_pass
   second_pass=$(cat "$temp")
 
   rm -f "$temp"
 
-  if [[ "$first_pass" == "$second_pass" ]]; then
-    echo "✓ Formatting is idempotent"
-    return 0
-  else
-    echo "✗ Formatting is not idempotent"
-    return 1
-  fi
+  assert_equals "$first_pass" "$second_pass" "Formatting should be idempotent"
+  teardown
 }
 
 # Test: Format test command to double brackets
 test_format_test_command() {
+  setup
+
   local temp
   temp=$(mktemp)
 
@@ -278,49 +247,27 @@ EOF
 
   bash "$CLEAN_SH" format "$temp" >/dev/null 2>&1
 
-  local output
   output=$(cat "$temp")
 
   rm -f "$temp"
 
-  if [[ "$output" =~ "if [[ -f" ]]; then
-    echo "✓ Test command formatted"
-    return 0
-  else
-    echo "✗ Test command not formatted"
-    return 1
-  fi
+  assert_contains "$output" "if [[ -f" "Should convert test command to double brackets"
+  teardown
 }
 
 # Run all tests
 run_tests() {
-  echo "Running formatter tests..."
-  echo ""
+  log_section "Formatter Tests"
 
-  local failed=0
-
-  test_format_brackets || ((failed++))
-  test_format_operator_spacing || ((failed++))
-  test_format_indentation || ((failed++))
-  test_preserve_heredocs || ((failed++))
-  test_preserve_strings || ((failed++))
-  test_preserve_comments || ((failed++))
-  test_preserve_brace_expansion || ((failed++))
-  test_idempotent_formatting || ((failed++))
-  test_format_test_command || ((failed++))
-
-  echo ""
-  if [[ $failed -eq 0 ]]; then
-    echo "✓ All formatter tests passed"
-    return 0
-  else
-    echo "✗ $failed formatter test(s) failed"
-    return 1
-  fi
+  test_format_brackets
+  test_format_operator_spacing
+  test_format_indentation
+  test_preserve_heredocs
+  test_preserve_strings
+  test_preserve_comments
+  test_preserve_brace_expansion
+  test_idempotent_formatting
+  test_format_test_command
 }
 
 export -f run_tests
-
-if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-  run_tests
-fi

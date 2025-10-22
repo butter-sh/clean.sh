@@ -1,85 +1,93 @@
-#!/usr/bin/env bash
+#!/bin/bash
+# Test suite for clean.sh CLI interface and commands
 
-# test-clean-cli.sh - CLI tests for clean.sh
-# Part of clean.sh test suite
+# Setup before each test
+setup() {
+  TEST_ENV_DIR=$(create_test_env)
+  cd "$TEST_ENV_DIR"
+}
 
-set -euo pipefail
-
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-CLEAN_SH="${SCRIPT_DIR}/../clean.sh"
+teardown() {
+  cleanup_test_env
+}
 
 # Test: Show help message
 test_show_help() {
-  local output
+  setup
+
   output=$(bash "$CLEAN_SH" help 2>&1)
 
-  if [[ "$output" =~ "POSIX-compliant Bash Linter" ]]; then
-    echo "✓ Help message displayed"
-    return 0
-  else
-    echo "✗ Help message not displayed correctly"
-    return 1
-  fi
+  assert_contains "$output" "POSIX-compliant Bash Linter" "Should show description"
+  assert_contains "$output" "COMMANDS:" "Should show commands section"
+  teardown
 }
 
 # Test: Show help with --help flag
 test_show_help_flag() {
-  local output
+  setup
+
   output=$(bash "$CLEAN_SH" --help 2>&1)
 
-  if [[ "$output" =~ "USAGE:" ]]; then
-    echo "✓ Help flag works"
-    return 0
-  else
-    echo "✗ Help flag failed"
-    return 1
-  fi
+  assert_contains "$output" "USAGE:" "Should show usage"
+  teardown
+}
+
+# Test: Show help with -h flag
+test_show_help_short_flag() {
+  setup
+
+  output=$(bash "$CLEAN_SH" -h 2>&1)
+
+  assert_contains "$output" "USAGE:" "Should show usage"
+  teardown
 }
 
 # Test: No command specified
 test_no_command() {
-  local output
-  output=$(bash "$CLEAN_SH" 2>&1 || true)
+  setup
 
-  if [[ "$output" =~ "No command specified" ]]; then
-    echo "✓ No command error displayed"
-    return 0
-  else
-    echo "✗ No command error not displayed"
-    return 1
-  fi
+  set +e
+  output=$(bash "$CLEAN_SH" 2>&1)
+  exit_code=$?
+  set -e
+
+  assert_contains "$output" "No command specified" "Should show error message"
+  assert_true "[[ $exit_code -ne 0 ]]" "Should exit with non-zero code"
+  teardown
 }
 
 # Test: No files specified
 test_no_files() {
-  local output
-  output=$(bash "$CLEAN_SH" lint 2>&1 || true)
+  setup
 
-  if [[ "$output" =~ "No files specified" ]]; then
-    echo "✓ No files error displayed"
-    return 0
-  else
-    echo "✗ No files error not displayed"
-    return 1
-  fi
+  set +e
+  output=$(bash "$CLEAN_SH" lint 2>&1)
+  exit_code=$?
+  set -e
+
+  assert_contains "$output" "No files specified" "Should show error message"
+  assert_true "[[ $exit_code -ne 0 ]]" "Should exit with non-zero code"
+  teardown
 }
 
 # Test: File not found
 test_file_not_found() {
-  local output
-  output=$(bash "$CLEAN_SH" lint /nonexistent/file.sh 2>&1 || true)
+  setup
 
-  if [[ "$output" =~ "File not found" ]]; then
-    echo "✓ File not found error displayed"
-    return 0
-  else
-    echo "✗ File not found error not displayed"
-    return 1
-  fi
+  set +e
+  output=$(bash "$CLEAN_SH" lint /nonexistent/file.sh 2>&1)
+  exit_code=$?
+  set -e
+
+  assert_contains "$output" "File not found" "Should show error message"
+  assert_true "[[ $exit_code -ne 0 ]]" "Should exit with non-zero code"
+  teardown
 }
 
 # Test: Lint command on clean file
 test_lint_clean_file() {
+  setup
+
   local temp
   temp=$(mktemp)
 
@@ -93,23 +101,18 @@ test_func() {
 }
 EOF
 
-  local output
   output=$(bash "$CLEAN_SH" lint "$temp" 2>&1)
 
   rm -f "$temp"
 
-  if [[ "$output" =~ "No issues found" ]]; then
-    echo "✓ Lint passed on clean file"
-    return 0
-  else
-    echo "✗ Lint failed on clean file"
-    echo "Output: $output"
-    return 1
-  fi
+  assert_contains "$output" "No issues found" "Should pass linting"
+  teardown
 }
 
 # Test: Format command creates valid output
 test_format_command() {
+  setup
+
   local temp
   temp=$(mktemp)
 
@@ -122,22 +125,19 @@ EOF
 
   bash "$CLEAN_SH" format "$temp" >/dev/null 2>&1
 
-  local output
   output=$(cat "$temp")
 
   rm -f "$temp"
 
-  if [[ "$output" =~ "test_func()" ]] && [[ "$output" =~ "  echo" ]]; then
-    echo "✓ Format command works"
-    return 0
-  else
-    echo "✗ Format command failed"
-    return 1
-  fi
+  assert_contains "$output" "test_func()" "Should format function declaration"
+  assert_contains "$output" "  echo" "Should indent function body"
+  teardown
 }
 
 # Test: Check command (same as lint)
 test_check_command() {
+  setup
+
   local temp
   temp=$(mktemp)
 
@@ -149,22 +149,18 @@ test_func() {
 }
 EOF
 
-  local output
   output=$(bash "$CLEAN_SH" check "$temp" 2>&1)
 
   rm -f "$temp"
 
-  if [[ "$output" =~ "Linting:" ]]; then
-    echo "✓ Check command works"
-    return 0
-  else
-    echo "✗ Check command failed"
-    return 1
-  fi
+  assert_contains "$output" "Linting:" "Should run linter"
+  teardown
 }
 
 # Test: Parse command
 test_parse_command() {
+  setup
+
   local temp
   temp=$(mktemp)
 
@@ -173,49 +169,65 @@ test_parse_command() {
 echo "test"
 EOF
 
-  local output
   output=$(bash "$CLEAN_SH" parse "$temp" 2>&1)
 
   rm -f "$temp"
 
-  if [[ "$output" =~ "AST for" ]]; then
-    echo "✓ Parse command works"
-    return 0
-  else
-    echo "✗ Parse command failed"
-    return 1
-  fi
+  assert_contains "$output" "AST for" "Should show AST output"
+  teardown
+}
+
+# Test: Usage shows all major commands
+test_usage_shows_commands() {
+  setup
+
+  output=$(bash "$CLEAN_SH" help 2>&1)
+
+  assert_contains "$output" "lint" "Should show lint command"
+  assert_contains "$output" "format" "Should show format command"
+  assert_contains "$output" "check" "Should show check command"
+  assert_contains "$output" "parse" "Should show parse command"
+  teardown
+}
+
+# Test: Usage shows configuration section
+test_usage_shows_configuration() {
+  setup
+
+  output=$(bash "$CLEAN_SH" help 2>&1)
+
+  assert_contains "$output" "CONFIGURATION:" "Should show configuration section"
+  assert_contains "$output" "arty.yml" "Should mention configuration file"
+  teardown
+}
+
+# Test: Usage shows examples
+test_usage_shows_examples() {
+  setup
+
+  output=$(bash "$CLEAN_SH" help 2>&1)
+
+  assert_contains "$output" "EXAMPLES:" "Should show examples section"
+  teardown
 }
 
 # Run all tests
 run_tests() {
-  echo "Running CLI tests..."
-  echo ""
+  log_section "CLI Tests"
 
-  local failed=0
-
-  test_show_help || ((failed++))
-  test_show_help_flag || ((failed++))
-  test_no_command || ((failed++))
-  test_no_files || ((failed++))
-  test_file_not_found || ((failed++))
-  test_lint_clean_file || ((failed++))
-  test_format_command || ((failed++))
-  test_check_command || ((failed++))
-  test_parse_command || ((failed++))
-
-  echo ""
-  if [[ $failed -eq 0 ]]; then
-    echo "✓ All CLI tests passed"
-    return 0
-  else
-    echo "✗ $failed CLI test(s) failed"
-    return 1
-  fi
+  test_show_help
+  test_show_help_flag
+  test_show_help_short_flag
+  test_no_command
+  test_no_files
+  test_file_not_found
+  test_lint_clean_file
+  test_format_command
+  test_check_command
+  test_parse_command
+  test_usage_shows_commands
+  test_usage_shows_configuration
+  test_usage_shows_examples
 }
 
 export -f run_tests
-
-if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-  run_tests
-fi

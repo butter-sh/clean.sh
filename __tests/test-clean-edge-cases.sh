@@ -1,15 +1,20 @@
-#!/usr/bin/env bash
+#!/bin/bash
+# Test suite for clean.sh edge cases
 
-# test-clean-edge-cases.sh - Edge case tests for clean.sh
-# Part of clean.sh test suite
+# Setup before each test
+setup() {
+  TEST_ENV_DIR=$(create_test_env)
+  cd "$TEST_ENV_DIR"
+}
 
-set -euo pipefail
-
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-CLEAN_SH="${SCRIPT_DIR}/../clean.sh"
+teardown() {
+  cleanup_test_env
+}
 
 # Test: Nested heredocs
 test_nested_heredocs() {
+  setup
+
   local temp
   temp=$(mktemp)
 
@@ -26,25 +31,21 @@ EOF
 
   bash "$CLEAN_SH" format "$temp" >/dev/null 2>&1
 
-  local output
   output=$(cat "$temp")
 
   rm -f "$temp"
 
-  local outer_count
   outer_count=$(echo "$output" | grep -c "OUTER" || true)
 
-  if [[ $outer_count -eq 2 ]] && [[ "$output" =~ "Inner indented content" ]]; then
-    echo "✓ Nested heredocs preserved"
-    return 0
-  else
-    echo "✗ Nested heredocs not preserved"
-    return 1
-  fi
+  assert_true "[[ $outer_count -eq 2 ]]" "Should have both OUTER delimiters"
+  assert_contains "$output" "Inner indented content" "Should preserve heredoc content"
+  teardown
 }
 
 # Test: Regex patterns with special characters
 test_regex_patterns() {
+  setup
+
   local temp
   temp=$(mktemp)
 
@@ -64,22 +65,20 @@ EOF
 
   bash "$CLEAN_SH" format "$temp" >/dev/null 2>&1
 
-  local output
   output=$(cat "$temp")
 
   rm -f "$temp"
 
-  if [[ "$output" =~ =~ ]] && [[ "$output" =~ \^v ]] && [[ "$output" =~ \[0-9\] ]]; then
-    echo "✓ Regex patterns preserved"
-    return 0
-  else
-    echo "✗ Regex patterns not preserved"
-    return 1
-  fi
+  assert_contains "$output" "=~" "Should preserve regex operator"
+  assert_true "[[ \"\$output\" =~ \\^v ]]" "Should preserve caret in regex"
+  assert_true "[[ \"\$output\" =~ \\[0-9\\] ]]" "Should preserve character class"
+  teardown
 }
 
 # Test: Parameter expansion variations
 test_parameter_expansions() {
+  setup
+
   local temp
   temp=$(mktemp)
 
@@ -98,22 +97,20 @@ EOF
 
   bash "$CLEAN_SH" format "$temp" >/dev/null 2>&1
 
-  local output
   output=$(cat "$temp")
 
   rm -f "$temp"
 
-  if [[ "$output" =~ '${VAR:-default}' ]] && [[ "$output" =~ '${#VAR}' ]] && [[ "$output" =~ '${VAR:0:5}' ]]; then
-    echo "✓ Parameter expansions preserved"
-    return 0
-  else
-    echo "✗ Parameter expansions not preserved"
-    return 1
-  fi
+  assert_contains "$output" '${VAR:-default}' "Should preserve default expansion"
+  assert_contains "$output" '${#VAR}' "Should preserve length expansion"
+  assert_contains "$output" '${VAR:0:5}' "Should preserve substring expansion"
+  teardown
 }
 
 # Test: Command substitution variations
 test_command_substitutions() {
+  setup
+
   local temp
   temp=$(mktemp)
 
@@ -128,22 +125,19 @@ EOF
 
   bash "$CLEAN_SH" format "$temp" >/dev/null 2>&1
 
-  local output
   output=$(cat "$temp")
 
   rm -f "$temp"
 
-  if [[ "$output" =~ '$(date' ]] && [[ "$output" =~ '$(echo' ]]; then
-    echo "✓ Command substitutions preserved"
-    return 0
-  else
-    echo "✗ Command substitutions not preserved"
-    return 1
-  fi
+  assert_contains "$output" '$(date' "Should preserve command substitution"
+  assert_contains "$output" '$(echo' "Should preserve nested substitution"
+  teardown
 }
 
 # Test: Arithmetic expansion variations
 test_arithmetic_expansions() {
+  setup
+
   local temp
   temp=$(mktemp)
 
@@ -159,22 +153,19 @@ EOF
 
   bash "$CLEAN_SH" format "$temp" >/dev/null 2>&1
 
-  local output
   output=$(cat "$temp")
 
   rm -f "$temp"
 
-  if [[ "$output" =~ '$((a + b))' ]] && [[ "$output" =~ '$((a * b))' ]]; then
-    echo "✓ Arithmetic expansions preserved"
-    return 0
-  else
-    echo "✗ Arithmetic expansions not preserved"
-    return 1
-  fi
+  assert_contains "$output" '$((a + b))' "Should preserve addition"
+  assert_contains "$output" '$((a * b))' "Should preserve multiplication"
+  teardown
 }
 
 # Test: Complex case statement
 test_complex_case_statement() {
+  setup
+
   local temp
   temp=$(mktemp)
 
@@ -201,22 +192,20 @@ EOF
 
   bash "$CLEAN_SH" format "$temp" >/dev/null 2>&1
 
-  local output
   output=$(cat "$temp")
 
   rm -f "$temp"
 
-  if [[ "$output" =~ 'case' ]] && [[ "$output" =~ 'esac' ]] && [[ "$output" =~ '-h|--help' ]]; then
-    echo "✓ Complex case statement preserved"
-    return 0
-  else
-    echo "✗ Complex case statement not preserved"
-    return 1
-  fi
+  assert_contains "$output" 'case' "Should preserve case statement"
+  assert_contains "$output" 'esac' "Should preserve esac"
+  assert_contains "$output" '-h|--help' "Should preserve pattern matching"
+  teardown
 }
 
 # Test: Array operations
 test_array_operations() {
+  setup
+
   local temp
   temp=$(mktemp)
 
@@ -241,22 +230,20 @@ EOF
 
   bash "$CLEAN_SH" format "$temp" >/dev/null 2>&1
 
-  local output
   output=$(cat "$temp")
 
   rm -f "$temp"
 
-  if [[ "$output" =~ 'declare -a' ]] && [[ "$output" =~ 'declare -A' ]] && [[ "$output" =~ '${FILES[@]}' ]]; then
-    echo "✓ Array operations preserved"
-    return 0
-  else
-    echo "✗ Array operations not preserved"
-    return 1
-  fi
+  assert_contains "$output" 'declare -a' "Should preserve indexed array declaration"
+  assert_contains "$output" 'declare -A' "Should preserve associative array declaration"
+  assert_contains "$output" '${FILES[@]}' "Should preserve array expansion"
+  teardown
 }
 
 # Test: Process substitution
 test_process_substitution() {
+  setup
+
   local temp
   temp=$(mktemp)
 
@@ -270,22 +257,19 @@ EOF
 
   bash "$CLEAN_SH" format "$temp" >/dev/null 2>&1
 
-  local output
   output=$(cat "$temp")
 
   rm -f "$temp"
 
-  if [[ "$output" =~ '<(sort file1.txt)' ]] && [[ "$output" =~ '<(sort file2.txt)' ]]; then
-    echo "✓ Process substitution preserved"
-    return 0
-  else
-    echo "✗ Process substitution not preserved"
-    return 1
-  fi
+  assert_contains "$output" '<(sort file1.txt)' "Should preserve first process substitution"
+  assert_contains "$output" '<(sort file2.txt)' "Should preserve second process substitution"
+  teardown
 }
 
 # Test: Glob patterns
 test_glob_patterns() {
+  setup
+
   local temp
   temp=$(mktemp)
 
@@ -309,22 +293,20 @@ EOF
 
   bash "$CLEAN_SH" format "$temp" >/dev/null 2>&1
 
-  local output
   output=$(cat "$temp")
 
   rm -f "$temp"
 
-  if [[ "$output" =~ '*.sh' ]] && [[ "$output" =~ '**/*.txt' ]] && [[ "$output" =~ 'file[0-9].txt' ]]; then
-    echo "✓ Glob patterns preserved"
-    return 0
-  else
-    echo "✗ Glob patterns not preserved"
-    return 1
-  fi
+  assert_contains "$output" '*.sh' "Should preserve star glob"
+  assert_contains "$output" '**/*.txt' "Should preserve globstar"
+  assert_contains "$output" 'file[0-9].txt' "Should preserve character class glob"
+  teardown
 }
 
 # Test: Line continuation with backslash
 test_line_continuation() {
+  setup
+
   local temp
   temp=$(mktemp)
 
@@ -340,23 +322,18 @@ EOF
 
   bash "$CLEAN_SH" format "$temp" >/dev/null 2>&1
 
-  local output
   output=$(cat "$temp")
 
   rm -f "$temp"
 
-  # Check for backslash using string containment (regex with single backslash is invalid)
-  if [[ "$output" == *\\* ]]; then
-    echo "✓ Line continuation preserved"
-    return 0
-  else
-    echo "✗ Line continuation not preserved"
-    return 1
-  fi
+  assert_true "[[ \"\$output\" == *\\\\* ]]" "Should preserve backslash line continuation"
+  teardown
 }
 
 # Test: Shebang variations
 test_shebang_variations() {
+  setup
+
   local temp
   temp=$(mktemp)
 
@@ -368,86 +345,29 @@ EOF
 
   bash "$CLEAN_SH" format "$temp" >/dev/null 2>&1
 
-  local output
   output=$(cat "$temp")
 
   rm -f "$temp"
 
-  if [[ "$output" =~ ^#!/usr/bin/env\ bash ]]; then
-    echo "✓ Shebang preserved"
-    return 0
-  else
-    echo "✗ Shebang not preserved"
-    return 1
-  fi
-}
-
-# Test: Empty lines preservation
-test_empty_lines() {
-  local temp
-  temp=$(mktemp)
-
-  cat > "$temp" << 'EOF'
-#!/usr/bin/env bash
-
-func1() {
-  echo "one"
-}
-
-func2() {
-  echo "two"
-}
-EOF
-
-  bash "$CLEAN_SH" format "$temp" >/dev/null 2>&1
-
-  local output
-  output=$(cat "$temp")
-
-  rm -f "$temp"
-
-  # Check that empty line between functions exists
-  if echo "$output" | grep -Pzo 'func1.*\n.*\n.*\n\n.*func2' >/dev/null 2>&1; then
-    echo "✓ Empty lines preserved"
-    return 0
-  else
-    echo "✓ Empty lines handling acceptable"
-    return 0
-  fi
+  assert_true "[[ \"\$output\" =~ ^#!/usr/bin/env\\ bash ]]" "Should preserve shebang"
+  teardown
 }
 
 # Run all tests
 run_tests() {
-  echo "Running edge case tests..."
-  echo ""
+  log_section "Edge Case Tests"
 
-  local failed=0
-
-  test_nested_heredocs || ((failed++))
-  test_regex_patterns || ((failed++))
-  test_parameter_expansions || ((failed++))
-  test_command_substitutions || ((failed++))
-  test_arithmetic_expansions || ((failed++))
-  test_complex_case_statement || ((failed++))
-  test_array_operations || ((failed++))
-  test_process_substitution || ((failed++))
-  test_glob_patterns || ((failed++))
-  test_line_continuation || ((failed++))
-  test_shebang_variations || ((failed++))
-  test_empty_lines || ((failed++))
-
-  echo ""
-  if [[ $failed -eq 0 ]]; then
-    echo "✓ All edge case tests passed"
-    return 0
-  else
-    echo "✗ $failed edge case test(s) failed"
-    return 1
-  fi
+  test_nested_heredocs
+  test_regex_patterns
+  test_parameter_expansions
+  test_command_substitutions
+  test_arithmetic_expansions
+  test_complex_case_statement
+  test_array_operations
+  test_process_substitution
+  test_glob_patterns
+  test_line_continuation
+  test_shebang_variations
 }
 
 export -f run_tests
-
-if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-  run_tests
-fi

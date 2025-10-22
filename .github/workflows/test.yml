@@ -1,0 +1,46 @@
+name: "[clean.sh] Tests"
+
+on:
+  push:
+    branches:
+    - main
+  workflow_dispatch:
+
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "test"
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Install environment
+      run: |
+        sudo apt install jq -y
+        sudo wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/local/bin/yq
+        sudo chmod +x /usr/local/bin/yq
+
+    - name: Install arty.sh
+      run: |
+        curl -sSL https://raw.githubusercontent.com/butter-sh/arty.sh/main/arty.sh | sudo tee /usr/local/bin/arty > /dev/null
+        sudo chmod +x /usr/local/bin/arty
+
+    - name: Install dependencies
+      run: arty deps
+
+    - name: Run Static Tests
+      run: |
+        arty lint
+
+    - name: Run Tests
+      run: |
+        arty test/ci

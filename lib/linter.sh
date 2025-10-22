@@ -61,7 +61,7 @@ check_bracket_style() {
   # Only flag 'test' when used as a conditional command, not as an argument
   # Valid contexts: start of line, after if/while/until/&&/||
   if [[ "$line" =~ ^[[:space:]]*test[[:space:]]+ ]] || \
-     [[ "$line" =~ (if|while|until|&&|\|\|)[[:space:]]+test[[:space:]]+ ]]; then
+  [[ "$line" =~ (if|while|until|&&|\|\|)[[:space:]]+test[[:space:]]+ ]]; then
     # Skip if it's inside quotes (simple check)
     if ! [[ "$line" =~ \"[^\"]*[[:space:]]test[[:space:]][^\"]*\" ]] && \
     ! [[ "$line" =~ \'[^\']*[[:space:]]test[[:space:]][^\']*\' ]]; then

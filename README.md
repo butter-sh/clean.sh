@@ -1,47 +1,86 @@
+<div align="center">
+
+<img src="./icon.svg" width="100" height="100" alt="clean.sh">
+
 # clean.sh
 
-A POSIX-compliant bash linter and formatter with AST-based parsing.
+**Bash Linter & Formatter**
 
-Part of the [butter.sh](https://github.com/butter-sh) ecosystem.
+[![Organization](https://img.shields.io/badge/org-butter--sh-4ade80?style=for-the-badge&logo=github&logoColor=white)](https://github.com/butter-sh)
+[![License](https://img.shields.io/badge/license-MIT-86efac?style=for-the-badge)](LICENSE)
+[![Version](https://img.shields.io/badge/version-1.0.0-22c55e?style=for-the-badge)](https://github.com/butter-sh/clean.sh/releases)
+[![butter.sh](https://img.shields.io/badge/butter.sh-clean-4ade80?style=for-the-badge)](https://butter-sh.github.io)
 
-## Features
+*POSIX-compliant bash linter and formatter with AST-based parsing and intelligent rule detection*
 
-✓ **AST-based parsing** using POSIX Shell EBNF grammar
-✓ **Idempotent formatting** - running multiple times produces same result
-✓ **Configurable rules** via `arty.yml`
-✓ **Context-aware** - preserves strings, regex, comments, heredocs
-✓ **Intelligent line wrapping** at logical break points
-✓ **Severity levels** for linting issues (error, warning, info)
-✓ **Heredoc-safe** - never corrupts multi-line strings
-✓ **Production-ready** - comprehensive test suite
+[Documentation](https://butter-sh.github.io/clean.sh) • [GitHub](https://github.com/butter-sh/clean.sh) • [butter.sh](https://github.com/butter-sh)
+
+</div>
+
+---
+
+## Overview
+
+clean.sh is a professional linter and formatter for bash scripts, providing intelligent style enforcement and automatic code corrections. Built with AST-based parsing, it understands shell syntax deeply and applies rules with context awareness, preserving heredocs, comments, and string literals.
+
+### Key Features
+
+- **AST-Based Parsing** — Deep syntactic understanding using POSIX Shell EBNF grammar
+- **Auto-Fix Formatting** — Automatically correct style issues in place
+- **Intelligent Rules** — Context-aware detection with protected contexts
+- **Style Enforcement** — Consistent coding standards across projects
+- **Heredoc Preservation** — Safe handling of heredocs, strings, and special contexts
+- **Idempotent** — Running multiple times produces same result
+- **Configurable** — Customize rules and severity levels via arty.yml
+
+---
 
 ## Installation
+
+### Using arty.sh
+
+```bash
+arty install https://github.com/butter-sh/clean.sh.git
+arty exec clean --help
+```
+
+### Manual Installation
 
 ```bash
 git clone https://github.com/butter-sh/clean.sh.git
 cd clean.sh
-bash setup.sh
+sudo cp clean.sh /usr/local/bin/clean
+sudo chmod +x /usr/local/bin/clean
 ```
+
+---
 
 ## Usage
 
-### CLI Commands
+### Lint Scripts
+
+Check scripts for style issues without modifying them:
 
 ```bash
-# Lint files (read-only check)
-./clean.sh lint script.sh
+clean lint script.sh
+clean lint lib/*.sh
+```
 
-# Format files in place (write/modify)
-./clean.sh format script.sh
+### Format Scripts
 
-# Check formatting without modifying
-./clean.sh check script.sh
+Automatically fix style issues:
 
-# Parse and show AST (debug)
-./clean.sh parse script.sh
+```bash
+clean format script.sh
+clean format **/*.sh
+```
 
-# Show help
-./clean.sh help
+### Check Without Modifying
+
+Alias for lint (non-destructive check):
+
+```bash
+clean check script.sh
 ```
 
 ### Options
@@ -53,21 +92,79 @@ bash setup.sh
 -h, --help          Show help message
 ```
 
-### Examples
+---
+
+## Linting Rules
+
+### Bracket Style
+
+Enforces double brackets `[[ ]]` over single brackets `[ ]`:
 
 ```bash
-# Lint a single file
-./clean.sh lint examples/example-script.sh
+# Before
+if [ -f "file.txt" ]; then
+  echo "found"
+fi
 
-# Format multiple files
-./clean.sh format lib/*.sh
-
-# Use custom config
-./clean.sh -c custom.yml lint script.sh
-
-# Verbose output
-./clean.sh -v format script.sh
+# After
+if [[ -f "file.txt" ]]; then
+  echo "found"
+fi
 ```
+
+### Test Command Conversion
+
+Converts `test` command to double brackets:
+
+```bash
+# Before
+if test -f "file.txt"; then
+  echo "found"
+fi
+
+# After
+if [[ -f "file.txt" ]]; then
+  echo "found"
+fi
+```
+
+### Operator Spacing
+
+Ensures proper spacing around logical operators:
+
+```bash
+# Before
+if [[ -f "a" ]]&&[[ -f "b" ]]; then
+  echo "both found"
+fi
+
+# After
+if [[ -f "a" ]] && [[ -f "b" ]]; then
+  echo "both found"
+fi
+```
+
+### Indentation
+
+Enforces consistent indentation (spaces, not tabs):
+
+```bash
+# Before
+function test_func() {
+echo "test"
+}
+
+# After
+function test_func() {
+  echo "test"
+fi
+```
+
+### Line Length
+
+Warns about lines exceeding maximum length (default: 100 characters).
+
+---
 
 ## Configuration
 
@@ -84,9 +181,6 @@ clean:
     space_after_comma: true     # Add space after commas
     space_before_brace: true    # Add space before {
     quote_variables: true       # Warn about unquoted variables
-    newline_before_pipe: false  # Break lines before pipes
-    lowercase_variables: false  # Enforce lowercase variable names
-    use_function_keyword: false # Use 'function' keyword
 
   severity:
     missing_quotes: warning     # Unquoted variable severity
@@ -94,276 +188,177 @@ clean:
     deprecated_syntax: error    # Deprecated syntax severity
     spacing_issues: warning     # Spacing violation severity
     bracket_style: warning      # Bracket style violation severity
-    indentation: warning        # Indentation violation severity
 ```
 
-## Rules
-
-### Bracket Style
-
-Enforces double brackets `[[ ]]` over single brackets `[ ]` and `test` command:
-
-```bash
-# Before
-if [ -f "file.txt" ]; then
-  test -d "dir"
-fi
-
-# After
-if [[ -f "file.txt" ]]; then
-  [[ -d "dir" ]]
-fi
-```
-
-### Operator Spacing
-
-Adds proper spacing around logical operators:
-
-```bash
-# Before
-if [[ -f "a" ]]&&[[ -f "b" ]]; then
-  echo "found"
-fi
-
-# After
-if [[ -f "a" ]] && [[ -f "b" ]]; then
-  echo "found"
-fi
-```
-
-### Indentation
-
-Enforces consistent indentation using spaces:
-
-```bash
-# Before
-test_func(){
-echo "test"
-}
-
-# After
-test_func() {
-  echo "test"
-}
-```
-
-### Line Length
-
-Warns about lines exceeding maximum length and intelligently wraps at pipes and logical operators:
-
-```bash
-# Before
-echo "line1" | grep "pattern" | sort | uniq | head -n 10 | tail -n 5 | xargs echo
-
-# After
-echo "line1" | grep "pattern" | sort | uniq | head -n 10 | \
-  tail -n 5 | \
-  xargs echo
-```
+---
 
 ## Protected Contexts
 
-clean.sh preserves the following contexts without modification:
+clean.sh preserves special contexts without modification:
 
-- **Strings**: `"test [ string ]"`
-- **Comments**: `# comment with [ brackets ]`
-- **Heredocs**: Multi-line strings with delimiters
+### Heredocs
+
+```bash
+cat << 'EOF'
+This [ content ] is preserved exactly
+Even with && operators and test commands
+EOF
+```
+
+### Comments
+
+```bash
+# This [ comment ] is preserved
+# Even with test and && operators
+```
+
+### String Literals
+
+```bash
+VAR="test [ string ] with && operators"
+echo "$VAR"  # String content is preserved
+```
+
+### Other Protected Contexts
+
 - **Regex patterns**: `[[ "$var" =~ pattern ]]`
-- **Parameter expansion**: `${var:-default}`, `${#var}`, `${var%suffix}`
+- **Parameter expansion**: `${var:-default}`, `${#var}`
 - **Arithmetic expansion**: `$((a + b))`
-- **Command substitution**: `$(command)`, `` `command` ``
+- **Command substitution**: `$(command)`
 - **Brace expansion**: `{a,b,c}`, `{1..10}`
-- **Glob patterns**: `*.sh`, `**/*.txt`, `file[0-9].txt`
+- **Glob patterns**: `*.sh`, `**/*.txt`
 - **Process substitution**: `<(command)`
+
+---
 
 ## Integration with arty.sh
 
-Add to your `arty.yml`:
+Add clean.sh to your project's `arty.yml`:
 
 ```yaml
-dependencies:
-  clean.sh: "^1.0.0"
+name: "my-project"
+version: "1.0.0"
+
+references:
+  - https://github.com/butter-sh/clean.sh.git
 
 scripts:
-  lint: "./clean.sh lint *.sh lib/*.sh"
-  format: "./clean.sh format *.sh lib/*.sh"
-  check: "./clean.sh check *.sh lib/*.sh"
+  lint: "arty exec clean lint *.sh"
+  format: "arty exec clean format *.sh"
+  check: "arty exec clean check *.sh"
 ```
 
 Then run:
 
 ```bash
-arty lint
-arty format
-arty check
+arty deps     # Install clean.sh
+arty lint     # Run linter
+arty format   # Auto-format code
 ```
 
-## Testing
+---
 
-Run the comprehensive test suite:
+## Examples
+
+### Format All Project Scripts
 
 ```bash
-# Run all tests
-bash __tests/test-clean-cli.sh
-bash __tests/test-clean-linter.sh
-bash __tests/test-clean-formatter.sh
-bash __tests/test-clean-edge-cases.sh
-
-# Or with judge.sh
-arty test
+clean format *.sh
+clean format __tests/*.sh
+clean format lib/*.sh
 ```
+
+### Lint Before Commit
+
+```bash
+#!/usr/bin/env bash
+# .git/hooks/pre-commit
+
+clean lint $(git diff --cached --name-only --diff-filter=ACM | grep '\.sh$')
+```
+
+### CI Integration
+
+```yaml
+# .github/workflows/lint.yml
+name: Lint
+on: [push, pull_request]
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install clean.sh
+        run: |
+          git clone https://github.com/butter-sh/clean.sh.git
+          sudo cp clean.sh/clean.sh /usr/local/bin/clean
+      - name: Lint scripts
+        run: clean lint **/*.sh
+```
+
+---
 
 ## Architecture
 
 ### Modules
 
-- **clean.sh**: Main CLI entry point with command parsing
-- **lib/parser.sh**: POSIX-compliant AST parser based on EBNF grammar
-- **lib/linter.sh**: Read-only linting engine with rule validation
-- **lib/formatter.sh**: Formatting engine with heredoc-safe implementation
+- **clean.sh** — Main CLI entry point with command parsing
+- **lib/parser.sh** — POSIX-compliant AST parser based on EBNF grammar
+- **lib/linter.sh** — Read-only linting engine with rule validation
+- **lib/formatter.sh** — Formatting engine with heredoc-safe implementation
 
 ### Parser
 
-The parser implements POSIX Shell grammar sections:
-
-- **B.8**: Parameter Expansion
-- **B.9**: Command Substitution
-- **B.10**: Arithmetic Expansion
-- **B.15**: Here Document
-- **B.18**: IO Redirection
-- **B.19**: Shell Glob Pattern
+Implements POSIX Shell grammar sections:
+- **B.8** — Parameter Expansion
+- **B.9** — Command Substitution
+- **B.10** — Arithmetic Expansion
+- **B.15** — Here Document
+- **B.18** — IO Redirection
+- **B.19** — Shell Glob Pattern
 
 Reference: [POSIX Shell Command Language](https://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html)
 
-### Formatter Safety
+---
 
-The formatter uses state tracking to ensure heredocs are never corrupted:
+## Exit Codes
 
-```bash
-format_file() {
-  local in_heredoc=false
-  local heredoc_delimiter=""
+- `0` — Success, no errors found
+- `1` — Errors detected or formatting failed
 
-  while IFS= read -r line; do
-    # Detect heredoc start
-    if detect_heredoc_start "$line"; then
-      in_heredoc=true
-      heredoc_delimiter=$(extract_heredoc_delimiter "$line")
-    fi
+Warnings and info messages don't cause non-zero exit codes.
 
-    # Preserve heredoc content exactly
-    if [[ "$in_heredoc" == true ]]; then
-      printf "%s\n" "$line"  # Output as-is
-      continue
-    fi
+---
 
-    # Format normal lines
-    format_line "$line" "$indent_level"
-  done
-}
-```
+## Related Projects
 
-## Development
+Part of the [butter.sh](https://github.com/butter-sh) ecosystem:
 
-### Project Structure
+- **[arty.sh](https://github.com/butter-sh/arty.sh)** — Dependency manager
+- **[judge.sh](https://github.com/butter-sh/judge.sh)** — Testing framework
+- **[myst.sh](https://github.com/butter-sh/myst.sh)** — Templating engine
+- **[hammer.sh](https://github.com/butter-sh/hammer.sh)** — Project scaffolding
+- **[leaf.sh](https://github.com/butter-sh/leaf.sh)** — Documentation generator
+- **[whip.sh](https://github.com/butter-sh/whip.sh)** — Release management
 
-```
-clean.sh/
-├── arty.yml              # Project configuration
-├── clean.sh              # Main CLI
-├── setup.sh              # Setup script
-├── README.md             # Documentation
-├── lib/
-│   ├── parser.sh         # POSIX parser
-│   ├── linter.sh         # Linting engine
-│   └── formatter.sh      # Formatting engine
-├── examples/
-│   └── example-script.sh # Example bash script
-└── __tests/
-    ├── test-clean-cli.sh
-    ├── test-clean-linter.sh
-    ├── test-clean-formatter.sh
-    └── test-clean-edge-cases.sh
-```
-
-### Adding Rules
-
-1. Add rule configuration to `arty.yml`:
-
-```yaml
-clean:
-  rules:
-    my_new_rule: true
-
-  severity:
-    my_new_rule: warning
-```
-
-2. Add check function to `lib/linter.sh`:
-
-```bash
-check_my_new_rule() {
-  local line="$1"
-  local line_num="$2"
-
-  if [[ "$line" =~ pattern ]]; then
-    add_issue "warning" "my_new_rule" "$line_num" "Issue message"
-    return 1
-  fi
-
-  return 0
-}
-```
-
-3. Add fix function to `lib/formatter.sh`:
-
-```bash
-fix_my_new_rule() {
-  local line="$1"
-
-  if [[ "${CONFIG[my_new_rule]}" != "true" ]]; then
-    echo "$line"
-    return 0
-  fi
-
-  # Apply fix
-  local fixed
-  fixed=$(echo "$line" | sed 's/pattern/replacement/')
-
-  echo "$fixed"
-}
-```
-
-4. Add tests to `__tests/test-clean-linter.sh` and `__tests/test-clean-formatter.sh`
-
-## Known Limitations
-
-- Does not support multiline command parsing (commands split across lines with `\`)
-- Line wrapping is limited to pipes and logical operators
-- Does not detect all possible quoting issues (heuristic-based)
-- Arithmetic expansion patterns must be simple to avoid regex syntax errors
-
-## Contributing
-
-Contributions are welcome! Please:
-
-1. Fork the repository
-2. Create a feature branch
-3. Add tests for new features
-4. Ensure all tests pass
-5. Submit a pull request
+---
 
 ## License
 
-MIT License - see LICENSE file for details
+MIT License — see [LICENSE](LICENSE) file for details.
 
-## Author
+## Contributing
 
-Part of butter.sh ecosystem by valknar@pivoine.art
+Contributions are welcome! Please feel free to submit a Pull Request.
 
-## References
+---
 
-- [POSIX Shell Command Language](https://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html)
-- [POSIX Shell EBNF Grammar](https://github.com/butter-sh/_assets/posix-shell.ebnf)
-- [judge.sh Testing Framework](https://github.com/butter-sh/judge.sh)
-- [arty.sh Package Manager](https://github.com/butter-sh/arty.sh)
+<div align="center">
+
+**Part of the [butter.sh](https://github.com/butter-sh) ecosystem**
+
+*Unlimited. Independent. Fresh.*
+
+Crafted by [Valknar](https://github.com/valknarogg)
+
+</div>

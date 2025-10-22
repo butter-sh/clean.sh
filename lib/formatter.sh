@@ -155,7 +155,7 @@ wrap_long_line() {
 
   # Try to wrap at pipe operators
   if [[ "$line" =~ \| ]] && ! [[ "$line" =~ =~ ]]; then
-    local segments=()
+    local result=""
     local current=""
     local first=true
 
@@ -171,7 +171,12 @@ wrap_long_line() {
         first=false
       else
         if [[ $((${#current} + ${#part} + 3)) -gt $max_len ]]; then
-          echo "${current} \\"
+          # Add to result with line continuation
+          if [[ -n "$result" ]]; then
+            result="${result}"$'\n'"${current} \\"
+          else
+            result="${current} \\"
+          fi
           current="${indent}  | ${part}"
         else
           current="${current} | ${part}"
@@ -179,7 +184,13 @@ wrap_long_line() {
       fi
     done
 
-    echo "$current"
+    # Output accumulated result plus final current segment
+    if [[ -n "$result" ]]; then
+      echo "$result"
+      echo "$current"
+    else
+      echo "$current"
+    fi
     return 0
   fi
 
@@ -335,6 +346,8 @@ format_file() {
   local indent_level=0
   local in_heredoc=false
   local heredoc_delimiter=""
+  local continued_line=""
+  local in_continuation=false
 
   while IFS= read -r line || [[ -n "$line" ]]; do
     line_num=$((line_num + 1))
@@ -352,6 +365,36 @@ format_file() {
       # Output heredoc end marker as-is
       printf "%s\n" "$line" >> "$temp"
       continue
+    fi
+
+    # Handle line continuations - join lines ending with backslash
+    if [[ "$in_heredoc" == false ]] && [[ "$line" =~ \\[[:space:]]*$ ]]; then
+      # Line ends with backslash - start or continue accumulating
+      if [[ "$in_continuation" == false ]]; then
+        # Remove trailing backslash and whitespace
+        continued_line="${line%\\*}"
+        in_continuation=true
+      else
+        # Continue accumulating - remove backslash and append
+        continued_line="${continued_line} ${line%\\*}"
+      fi
+      continue
+    elif [[ "$in_continuation" == true ]]; then
+      # This line completes the continuation
+      local trimmed_line="${line#"${line%%[![:space:]]*}"}"
+
+      # Check if we're joining with a pipe operator - avoid duplication
+      if [[ "$continued_line" =~ \|[[:space:]]*$ ]] && [[ "$trimmed_line" =~ ^\|[[:space:]] ]]; then
+        # Both parts have pipe operator - keep only one
+        # Remove trailing pipe from continued_line
+        continued_line="${continued_line%|*}"
+        continued_line="${continued_line%"${continued_line##*[![:space:]]}"}"  # trim trailing space
+      fi
+
+      continued_line="${continued_line} ${trimmed_line}"
+      line="$continued_line"
+      in_continuation=false
+      continued_line=""
     fi
 
     # Calculate current indentation level

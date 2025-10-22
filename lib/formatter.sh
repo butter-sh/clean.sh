@@ -385,7 +385,10 @@ format_file() {
       prev_line_content="${prev_line_content%\\*}"
 
       # Check if we have duplicate pipe operators
-      if [[ "$prev_line_content" =~ \|[[:space:]]*$ ]] && [[ "$trimmed_line" =~ ^\|[[:space:]] ]]; then
+      # Case 1: Last continuation line ends with | and current line starts with |
+      # Case 2: Current line has multiple consecutive pipes |  |
+      if ([[ "$prev_line_content" =~ \|[[:space:]]*$ ]] && [[ "$trimmed_line" =~ ^\|[[:space:]] ]]) || \
+         [[ "$trimmed_line" =~ \|[[:space:]]+\| ]]; then
         # Duplicate pipe - join and fix
         local joined=""
         while IFS= read -r cont_line; do

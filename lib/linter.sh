@@ -57,9 +57,11 @@ check_bracket_style() {
     return 1
   fi
 
-  # Check for test command (skip if inside quotes)
-  # First check if the line has 'test' in a command context (not function names)
-  if [[ "$line" =~ [[:space:]]test[[:space:]]+ ]] || [[ "$line" =~ ^test[[:space:]]+ ]]; then
+  # Check for test command (skip if inside quotes or used as argument)
+  # Only flag 'test' when used as a conditional command, not as an argument
+  # Valid contexts: start of line, after if/while/until/&&/||
+  if [[ "$line" =~ ^[[:space:]]*test[[:space:]]+ ]] || \
+     [[ "$line" =~ (if|while|until|&&|\|\|)[[:space:]]+test[[:space:]]+ ]]; then
     # Skip if it's inside quotes (simple check)
     if ! [[ "$line" =~ \"[^\"]*[[:space:]]test[[:space:]][^\"]*\" ]] && \
     ! [[ "$line" =~ \'[^\']*[[:space:]]test[[:space:]][^\']*\' ]]; then

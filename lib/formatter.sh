@@ -3,6 +3,47 @@
 # formatter.sh - Formatting engine with heredoc-safe rule application
 # Part of clean.sh
 
+# Check if line contains quoted strings with special patterns
+# Returns 0 (true) if brackets or operators are INSIDE quoted strings
+has_quoted_special_chars() {
+  local line="$1"
+  local in_quote=false
+  local quote_char=""
+  local i
+  local char
+  local prev_char=""
+
+  # Scan character by character
+  for ((i=0; i<${#line}; i++)); do
+    char="${line:$i:1}"
+
+    # Handle quote toggling (skip escaped quotes)
+    if [[ "$prev_char" != "\\" ]]; then
+      if [[ "$char" == '"' ]] || [[ "$char" == "'" ]]; then
+        if [[ "$in_quote" == false ]]; then
+          in_quote=true
+          quote_char="$char"
+        elif [[ "$char" == "$quote_char" ]]; then
+          in_quote=false
+          quote_char=""
+        fi
+      fi
+    fi
+
+    # If we're inside a quote, check for special characters
+    if [[ "$in_quote" == true ]]; then
+      local next_char="${line:$((i+1)):1}"
+      if [[ "$char" == "[" ]] || [[ "$char$next_char" == "&&" ]] || [[ "$char$next_char" == "||" ]]; then
+        return 0
+      fi
+    fi
+
+    prev_char="$char"
+  done
+
+  return 1
+}
+
 # Format bracket style
 fix_brackets() {
   local line="$1"
@@ -18,8 +59,8 @@ fix_brackets() {
     return 0
   fi
 
-  # Skip lines with string assignments (heuristic to avoid modifying string content)
-  if [[ "$line" =~ =\"[^\"]*\[.*\] ]]; then
+  # Skip lines with special characters in quoted strings
+  if has_quoted_special_chars "$line"; then
     echo "$line"
     return 0
   fi
@@ -28,15 +69,15 @@ fix_brackets() {
 
   # Fix 'test' command to [[ ]]
   if [[ "$fixed" =~ [[:space:]]test[[:space:]]+ ]]; then
-  fixed=$(echo "$fixed" | sed 's/\btest \(.*\); *\(then\|do\)/[[ \1 ]]; \2/g')
-fi
+    fixed=$(echo "$fixed" | sed 's/\btest \(.*\); *\(then\|do\)/[[ \1 ]]; \2/g')
+  fi
 
   # Fix single brackets [ to [[
-if [[ "$fixed" =~ \[[[:space:]][^[] ]] && ! [[ "$fixed" =~ \[\[ ]]; then
-fixed=$(echo "$fixed" | sed 's/\[ /[[ /g; s/ \];/ ]];/g')
-fi
+  if [[ "$fixed" =~ \[[[:space:]][^[] ]] && ! [[ "$fixed" =~ \[\[ ]]; then
+    fixed=$(echo "$fixed" | sed 's/\[ /[[ /g; s/ \];/ ]];/g')
+  fi
 
-echo "$fixed"
+  echo "$fixed"
 }
 
 # Fix operator spacing
@@ -54,32 +95,38 @@ fix_operator_spacing() {
     return 0
   fi
 
+  # Skip lines with special characters in quoted strings
+  if has_quoted_special_chars "$line"; then
+    echo "$line"
+    return 0
+  fi
+
   local fixed="$line"
 
   # Fix logical operators && and ||
   if ! [[ "$fixed" =~ =~ ]]; then
     # Fix && operator: remove any existing spaces, then add proper spacing
-  fixed=$(echo "$fixed" | sed 's/\]\][[:space:]]*\&\&[[:space:]]*/]] \&\& /g')
-fixed=$(echo "$fixed" | sed 's/\&\&[[:space:]]*\[\[/\&\& [[/g')
+    fixed=$(echo "$fixed" | sed 's/\]\][[:space:]]*\&\&[[:space:]]*/]] \&\& /g')
+    fixed=$(echo "$fixed" | sed 's/\&\&[[:space:]]*\[\[/\&\& [[/g')
     # Fix || operator similarly
-fixed=$(echo "$fixed" | sed 's/\]\][[:space:]]*||[[:space:]]*/]] || /g')
-fixed=$(echo "$fixed" | sed 's/||[[:space:]]*\[\[/|| [[/g')
-fi
+    fixed=$(echo "$fixed" | sed 's/\]\][[:space:]]*||[[:space:]]*/]] || /g')
+    fixed=$(echo "$fixed" | sed 's/||[[:space:]]*\[\[/|| [[/g')
+  fi
 
   # Fix space before braces if configured
-if [[ "${CONFIG[space_before_brace]}" == "true" ]]; then
-fixed=$(echo "$fixed" | sed 's/){/) {/g; s/then{/then {/g; s/do{/do {/g')
-fi
+  if [[ "${CONFIG[space_before_brace]}" == "true" ]]; then
+    fixed=$(echo "$fixed" | sed 's/){/) {/g; s/then{/then {/g; s/do{/do {/g')
+  fi
 
   # Fix space after comma if configured (but not in brace expansions)
-if [[ "${CONFIG[space_after_comma]}" == "true" ]]; then
+  if [[ "${CONFIG[space_after_comma]}" == "true" ]]; then
     # Use parser function for POSIX-compliant detection
-  if ! is_brace_expansion "$fixed"; then
-  fixed=$(echo "$fixed" | sed 's/,\([^ ]\)/, \1/g')
-fi
-fi
+    if ! is_brace_expansion "$fixed"; then
+      fixed=$(echo "$fixed" | sed 's/,\([^ ]\)/, \1/g')
+    fi
+  fi
 
-echo "$fixed"
+  echo "$fixed"
 }
 
 # Wrap long lines intelligently
@@ -96,6 +143,12 @@ wrap_long_line() {
 
   # Don't wrap protected contexts
   if is_protected_context "$line"; then
+    echo "$line"
+    return 0
+  fi
+
+  # Don't wrap lines with operators/pipes inside quoted strings
+  if has_quoted_special_chars "$line"; then
     echo "$line"
     return 0
   fi
